@@ -297,13 +297,33 @@
         }
         td .previsto-fixo {
             font-weight: bold;
-            color: #08b9d5;
-            background: #f0f8ff;
+            color: #c0c8c9;
+            background: #ffffff;
             padding: 6px 8px;
             border-radius: 10px;
             display: inline-block;
             width: 100%;
             text-align: center;
+        }
+        td .acumulado-valor {
+            font-weight: bold;
+            color: #08b9d5;
+        }
+        td .ndg-input {
+            width: 70px;
+            text-align: center;
+            font-weight: bold;
+        }
+        td .ndg-good { background: #d4edda; color: #155724; font-weight: bold; }
+        td .ndg-warning { background: #fff3cd; color: #856404; font-weight: bold; }
+        td .ndg-danger { background: #f8d7da; color: #721c24; font-weight: bold; }
+        td .desconto-valor {
+            font-weight: bold;
+            color: #dc3545;
+        }
+        td .despesa-valor {
+            font-weight: bold;
+            color: #fd7e14;
         }
         
         .badge { 
@@ -370,6 +390,31 @@
             text-align: center;
             margin-bottom: 20px;
             font-weight: bold;
+        }
+        
+        .chart-type-selector {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        .chart-type-btn {
+            padding: 6px 12px;
+            border: 1px solid #08b9d5;
+            background: white;
+            color: #08b9d5;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s;
+        }
+        .chart-type-btn.active {
+            background: #08b9d5;
+            color: white;
+        }
+        .chart-type-btn:hover {
+            background: #08b9d5;
+            color: white;
         }
         
         @media (max-width: 1200px) {
@@ -540,10 +585,18 @@
     
     <div class="graficos-row">
         <div class="grafico-wrapper">
-            <h3>🥧 Distribuição por Status</h3>
-            <div class="grafico">
-                <canvas id="graficoStatus"></canvas>
+            <div class="chart-type-selector">
+                <button class="chart-type-btn active" data-chart="bar" onclick="setChartType('bar')">📊 Barras</button>
+                <button class="chart-type-btn" data-chart="line" onclick="setChartType('line')">📈 Linha</button>
+                <button class="chart-type-btn" data-chart="radar" onclick="setChartType('radar')">🕸️ Radar</button>
+                <button class="chart-type-btn" data-chart="pie" onclick="setChartType('pie')">🥧 Pizza</button>
+                <button class="chart-type-btn" data-chart="doughnut" onclick="setChartType('doughnut')">🍩 Rosca</button>
             </div>
+            <h3>💰 Valores Financeiros por Mês</h3>
+            <div class="grafico">
+                <canvas id="graficoFinanceiro"></canvas>
+            </div>
+            <p style="text-align:center; font-size:11px; color:#666; margin-top:10px;">📊 Comparativo: Realizado vs Previsto vs Despesas vs Desconto</p>
         </div>
         <div class="grafico-wrapper">
             <h3>📈 Realizado vs Previsto</h3>
@@ -558,12 +611,19 @@
         <table id="tabela">
             <thead>
                 <tr>
-                    <th>Med</th><th>Mês/Ano</th><th>Data Entrega</th>
+                    <th>Med</th>
+                    <th>Mês/Ano</th>
+                    <th>Data Entrega</th>
                     <th>Previsto</th>
+                    <th>Realizado</th>
                     <th>Reajuste</th>
-                    <th>Realizado</th><th>Diferença</th>
-                    <th>Total Líquido</th>
-                    <th>Status</th><th>Observação</th>
+                    <th>Total Acumulado</th>
+                    <th>Despesas</th>
+                    <th>NDG</th>
+                    <th>Descontos</th>
+                    <th>Diferença</th>
+                    <th>Status</th>
+                    <th>Observação</th>
                 </tr>
             </thead>
             <tbody id="tabelaBody"></tbody>
@@ -584,8 +644,10 @@
             <b>ℹ️ INFORMAÇÕES</b><br><br>
             <span>Período: 60 meses (Set/2025 a Ago/2030)</span><br>
             <span style="font-weight:bold;">💰 Valor Previsto por Mês: R$ 1.497.718,70 (fixo)</span><br>
-            <span>📌 Barra de progresso: valor ACUMULADO até a medição selecionada</span><br>
-            <span>📊 Gráfico: valores MENSAIS quando filtro específico | ACUMULADOS na visão geral</span><br>
+            <span>📌 Barra de progresso: valor ACUMULADO apenas de medições com status = PAGO</span><br>
+            <span>📊 Total Acumulado = SOMA(Previsto + Reajuste) acumulado mês a mês</span><br>
+            <span>⭐ NDG (Nota de Desempenho): 0-100</span><br>
+            <span>🎯 Desconto: ≥90=0% | 80-89=2,5% | 70-79=5% | 50-69=7,5% | &lt;50=10%</span><br>
             <span>🔍 Clique nos cards para filtrar por status</span><br>
             <span>💾 As alterações são salvas automaticamente no navegador</span>
             <div class="valor-previsto-mensal">
@@ -599,16 +661,13 @@
 </div>
 
 <script>
-// Mudando a chave do localStorage para garantir dados limpos
-var STORAGE_KEY = 'medições_dados_v2';
-
 var totalContrato = 89863121.73;
 var valorPrevistoMensal = 1497718.70;
 var dados = [];
-var chart = null;
+var chartFinanceiro = null;
 var chartAcumulado = null;
+var currentChartType = 'bar';
 
-// TODAS as empresas começam DESMARCADAS
 var empresasSelecionadas = {};
 
 var percentuaisEmpresas = {
@@ -617,6 +676,32 @@ var percentuaisEmpresas = {
     EHP: 0.15,
     Prisma: 0.15
 };
+
+function setChartType(type) {
+    currentChartType = type;
+    document.querySelectorAll('.chart-type-btn').forEach(btn => {
+        if(btn.dataset.chart === type) {
+            btn.classList.add('active');
+        } else {
+            btn.classList.remove('active');
+        }
+    });
+    atualizarGraficoFinanceiro();
+}
+
+function getDescontoPorNDG(ndg) {
+    if (ndg >= 90) return 0;
+    if (ndg >= 80) return 2.5;
+    if (ndg >= 70) return 5;
+    if (ndg >= 50) return 7.5;
+    return 10;
+}
+
+function getClassePorNDG(ndg) {
+    if (ndg >= 90) return 'ndg-good';
+    if (ndg >= 70) return 'ndg-warning';
+    return 'ndg-danger';
+}
 
 function aplicarMascaraData(input) {
     var valor = input.value.replace(/\D/g, '');
@@ -663,6 +748,22 @@ function getValorPrevistoProporcional() {
     return valorPrevistoMensal * fator;
 }
 
+function getFilteredDataByEmpresa(dadosOriginais) {
+    var fator = calcularFatorEmpresas();
+    if (fator === 0 || fator === 1) return dadosOriginais;
+    
+    return dadosOriginais.map(function(item) {
+        var novoItem = JSON.parse(JSON.stringify(item));
+        novoItem.reaj = item.reaj * fator;
+        novoItem.realizado = item.realizado * fator;
+        novoItem.despesa = (item.despesa || 0) * fator;
+        novoItem.totalLiq = item.totalLiq * fator;
+        novoItem.acumulado = item.acumulado * fator;
+        novoItem.previsto = item.previsto * fator;
+        return novoItem;
+    });
+}
+
 function getMedicaoNumByMes(mesAno) {
     for (var i = 0; i < dados.length; i++) {
         if (dados[i].mes === mesAno) {
@@ -672,19 +773,20 @@ function getMedicaoNumByMes(mesAno) {
     return null;
 }
 
-function calcularTotalAcumuladoAteMedicao(medicaoNum) {
+function calcularTotalAcumuladoPagoAteMedicao(medicaoNum) {
     var total = 0;
     for (var i = 0; i < dados.length; i++) {
         var medAtual = parseInt(dados[i].med);
         var temDataValida = dados[i].data && dados[i].data !== '' && isDataValida(dados[i].data);
-        if (medAtual <= medicaoNum && temDataValida) {
-            total += dados[i].realizado;
+        var isPago = dados[i].status === 'pago';
+        if (medAtual <= medicaoNum && temDataValida && isPago) {
+            total += dados[i].totalLiq;
         }
     }
     return total;
 }
 
-function calcularTotalAcumuladoAteAno(ano) {
+function calcularTotalAcumuladoPagoAteAno(ano) {
     var ultimaMedNoAno = 0;
     for (var i = 0; i < dados.length; i++) {
         var anoMed = parseInt(dados[i].mes.split('/')[1]);
@@ -693,7 +795,7 @@ function calcularTotalAcumuladoAteAno(ano) {
             ultimaMedNoAno = medNum;
         }
     }
-    return calcularTotalAcumuladoAteMedicao(ultimaMedNoAno);
+    return calcularTotalAcumuladoPagoAteMedicao(ultimaMedNoAno);
 }
 
 function toggleEmpresa(botao) {
@@ -711,7 +813,7 @@ function toggleEmpresa(botao) {
 }
 
 function atualizarCardsEmpresas() {
-    var totalRealizadoAcumulado = calcularTotalAcumuladoAteMedicao(60);
+    var totalRealizadoAcumulado = calcularTotalAcumuladoPagoAteMedicao(60);
     
     for (var empresa in percentuaisEmpresas) {
         var valor = totalRealizadoAcumulado * percentuaisEmpresas[empresa];
@@ -727,7 +829,7 @@ function atualizarCardsEmpresas() {
 }
 
 function atualizarTotalSelecionado() {
-    var totalRealizadoAcumulado = calcularTotalAcumuladoAteMedicao(60);
+    var totalRealizadoAcumulado = calcularTotalAcumuladoPagoAteMedicao(60);
     
     var totalPercentual = 0;
     for (var emp in empresasSelecionadas) {
@@ -778,46 +880,49 @@ function formatar(v) {
     return 'R$ 0,00';
 }
 
+function formatarDiferenca(diferenca, valorPrevisto) {
+    if (diferenca === 0 || isNaN(diferenca) || valorPrevisto === 0) return 'R$ 0,00 (0%)';
+    var perc = (Math.abs(diferenca) / valorPrevisto) * 100;
+    var sinal = diferenca > 0 ? '+' : '-';
+    var classe = diferenca > 0 ? 'diferenca-acima' : 'diferenca-abaixo';
+    return '<span class="' + classe + '">' + sinal + ' ' + formatar(Math.abs(diferenca)) + ' (' + perc.toFixed(1) + '%)</span>';
+}
+
 function gerarDadosIniciais() {
     var meses = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
     var dadosTemp = [];
     var ano = 2025;
     var idx = 8;
     
-    // Valores base - TODAS as observações vazias (sem símbolo ✔)
     var valoresBase = {
-        1: { reaj: 0, status: "pago", data: "30/09/2025", realizado: 1488413.42, obs: "" },
-        2: { reaj: 0, status: "pago", data: "31/10/2025", realizado: 1713422.19, obs: "" },
-        3: { reaj: 57428.89, status: "pagamento", data: "30/11/2025", realizado: 1590289.17, obs: "" },
-        4: { reaj: 55024.77, status: "aprovado", data: "31/12/2025", realizado: 1524232.70, obs: "" },
-        5: { reaj: 51897.21, status: "analise", data: "31/01/2026", realizado: 1437596.56, obs: "" },
-        6: { reaj: 0, status: "analise", data: "01/02/2026", realizado: 1437596.56, obs: "" },
-        7: { reaj: 0, status: "aprovado", data: "01/03/2026", realizado: 1437596.56, obs: "" },
-        8: { reaj: 0, status: "nao_iniciado", data: "04/04/2026", realizado: 1437596.56, obs: "" }
+        1: { reaj: 0, status: "aprovado", data: "30/09/2025", realizado: 1888413.42, ndg: 85, despesa: 123453.67, obs: "Tudo ok" },
+        2: { reaj: 0, status: "aprovado", data: "31/10/2025", realizado: 1713422.19, ndg: 92, despesa: 76872.90, obs: "" },
+        3: { reaj: 57428.89, status: "aprovado", data: "30/11/2025", realizado: 1590289.17, ndg: 85, despesa: 0, obs: "" },
+        4: { reaj: 55024.77, status: "aprovado", data: "31/12/2025", realizado: 1524232.70, ndg: 88, despesa: 0, obs: "" },
+        5: { reaj: 51897.21, status: "analise", data: "31/01/2026", realizado: 1437596.56, ndg: 75, despesa: 0, obs: "" },
+        6: { reaj: 0, status: "analise", data: "01/02/2026", realizado: 1437596.56, ndg: 72, despesa: 0, obs: "" },
+        7: { reaj: 0, status: "aprovado", data: "01/03/2026", realizado: 1437596.56, ndg: 78, despesa: 0, obs: "" },
+        8: { reaj: 0, status: "aprovado", data: "04/04/2026", realizado: 1437596.56, ndg: 78, despesa: 0, obs: "" }
     };
     
     for (var c = 1; c <= 60; c++) {
         var mesAno = meses[idx] + "/" + ano;
-        var reaj = 0, status = "nao_iniciado", obs = "", dataEntrega = "", realizado = valorPrevistoMensal;
+        var reaj = 0, status = "nao_iniciado", obs = "", dataEntrega = "", realizado = 0, ndg = 0, despesa = 0;
         
         if (valoresBase[c]) {
             reaj = valoresBase[c].reaj;
             status = valoresBase[c].status;
             dataEntrega = valoresBase[c].data;
             realizado = valoresBase[c].realizado;
-            obs = ""; // Força observação vazia
+            ndg = valoresBase[c].ndg;
+            despesa = valoresBase[c].despesa;
+            obs = valoresBase[c].obs || "";
         } else {
-            var variacao = (Math.random() * 0.2 - 0.1);
-            realizado = valorPrevistoMensal * (1 + variacao);
-            if (realizado > valorPrevistoMensal * 1.05) status = "pago";
-            else if (realizado < valorPrevistoMensal * 0.95) status = "analise";
-            else status = "aprovado";
-            
-            if (c % 3 === 0) {
-                reaj = Math.random() * 60000;
-                status = "pagamento";
-            }
-            obs = ""; // Força observação vazia para todas
+            status = "nao_iniciado";
+            dataEntrega = "";
+            realizado = 0;
+            ndg = 0;
+            despesa = 0;
         }
         
         dadosTemp.push({
@@ -827,40 +932,53 @@ function gerarDadosIniciais() {
             previsto: valorPrevistoMensal,
             reaj: reaj,
             status: status,
-            obs: "",
+            obs: obs,
             realizado: realizado,
+            ndg: ndg,
+            despesa: despesa,
             totalLiq: valorPrevistoMensal + reaj,
-            despesa: 0
+            acumulado: 0
         });
         
         idx++;
         if (idx >= 12) { idx = 0; ano++; }
     }
     
+    var somaAcumulada = 0;
+    for (var i = 0; i < dadosTemp.length; i++) {
+        if (dadosTemp[i].data && dadosTemp[i].data !== '' && isDataValida(dadosTemp[i].data)) {
+            somaAcumulada += dadosTemp[i].totalLiq;
+        }
+        dadosTemp[i].acumulado = somaAcumulada;
+    }
+    
     return dadosTemp;
 }
 
 function carregarDados() {
-    // Usar nova chave de storage para garantir dados limpos
-    var salvos = localStorage.getItem(STORAGE_KEY);
+    var salvos = localStorage.getItem('medições_dados_v9_final');
     if (salvos) {
         try {
             dados = JSON.parse(salvos);
             for (var i = 0; i < dados.length; i++) {
-                if (!dados[i].realizado || dados[i].realizado === 0) {
-                    dados[i].realizado = valorPrevistoMensal;
-                }
                 if (typeof dados[i].obs === 'undefined') dados[i].obs = '';
                 if (typeof dados[i].reaj === 'undefined') dados[i].reaj = 0;
                 if (typeof dados[i].despesa === 'undefined') dados[i].despesa = 0;
+                if (typeof dados[i].acumulado === 'undefined') dados[i].acumulado = 0;
+                if (typeof dados[i].ndg === 'undefined') dados[i].ndg = 0;
                 dados[i].previsto = valorPrevistoMensal;
                 dados[i].totalLiq = dados[i].previsto + (dados[i].reaj || 0);
                 
                 if (dados[i].data === '-' || dados[i].data === '---') {
                     dados[i].data = '';
                 }
-                // Garantir que observação não tenha símbolo ✔
-                if (dados[i].obs === '✔') dados[i].obs = '';
+            }
+            var somaAcumulada = 0;
+            for (var i = 0; i < dados.length; i++) {
+                if (dados[i].data && dados[i].data !== '' && isDataValida(dados[i].data)) {
+                    somaAcumulada += dados[i].totalLiq;
+                }
+                dados[i].acumulado = somaAcumulada;
             }
             mostrarStatus('Dados carregados!', true);
         } catch(e) {
@@ -881,22 +999,58 @@ function salvarTodos() {
         var med = dados[i].med;
         var dataInput = document.getElementById('data_' + med);
         var reajInput = document.getElementById('reaj_' + med);
+        var ndgInput = document.getElementById('ndg_' + med);
         var statusSelect = document.getElementById('status_' + med);
         var obsInput = document.getElementById('obs_' + med);
         var realizadoInput = document.getElementById('realizado_' + med);
+        var despesaInput = document.getElementById('despesa_' + med);
         
         if (reajInput) {
-            dados[i].data = dataInput ? dataInput.value : '';
-            dados[i].reaj = parseFloat(reajInput.value.replace(/\./g,'').replace(',','.')) || 0;
-            dados[i].status = statusSelect ? statusSelect.value : dados[i].status;
-            dados[i].obs = obsInput ? obsInput.value : '';
-            var realizado = parseFloat(realizadoInput.value.replace(/\./g,'').replace(',','.')) || 0;
-            dados[i].realizado = (realizado === 0) ? valorPrevistoMensal : realizado;
+            var dataValue = dataInput ? dataInput.value : '';
+            dados[i].data = dataValue;
+            
+            var temDataValida = dataValue && dataValue !== '' && isDataValida(dataValue);
+            
+            if (!temDataValida) {
+                dados[i].reaj = 0;
+                dados[i].realizado = 0;
+                dados[i].despesa = 0;
+                dados[i].ndg = 0;
+                dados[i].status = 'nao_iniciado';
+                dados[i].obs = obsInput ? obsInput.value : '';
+            } else {
+                dados[i].reaj = parseFloat(reajInput.value.replace(/\./g,'').replace(',','.')) || 0;
+                dados[i].status = statusSelect ? statusSelect.value : dados[i].status;
+                dados[i].obs = obsInput ? obsInput.value : '';
+                var realizado = parseFloat(realizadoInput.value.replace(/\./g,'').replace(',','.')) || 0;
+                dados[i].realizado = (realizado === 0) ? valorPrevistoMensal : realizado;
+                dados[i].ndg = ndgInput ? parseInt(ndgInput.value) || 100 : 100;
+                dados[i].ndg = Math.min(100, Math.max(0, dados[i].ndg));
+                var despesa = parseFloat(despesaInput.value.replace(/\./g,'').replace(',','.')) || 0;
+                dados[i].despesa = despesa;
+            }
             dados[i].totalLiq = dados[i].previsto + dados[i].reaj;
         }
     }
     
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(dados));
+    var dadosOrdenados = [...dados].sort(function(a, b) {
+        return parseInt(a.med) - parseInt(b.med);
+    });
+    var somaAcumulada = 0;
+    for (var i = 0; i < dadosOrdenados.length; i++) {
+        var temDataValida = dadosOrdenados[i].data && dadosOrdenados[i].data !== '' && isDataValida(dadosOrdenados[i].data);
+        if (temDataValida) {
+            somaAcumulada += dadosOrdenados[i].totalLiq;
+        }
+        for (var j = 0; j < dados.length; j++) {
+            if (parseInt(dados[j].med) === parseInt(dadosOrdenados[i].med)) {
+                dados[j].acumulado = somaAcumulada;
+                break;
+            }
+        }
+    }
+    
+    localStorage.setItem('medições_dados_v9_final', JSON.stringify(dados));
     mostrarStatus('Dados salvos!', true);
     aplicarFiltros();
 }
@@ -926,19 +1080,19 @@ function atualizarCards(filtrados) {
     
     if (filtroMedicao !== 'todos') {
         var medNum = parseInt(filtroMedicao);
-        totalAcumulado = calcularTotalAcumuladoAteMedicao(medNum);
+        totalAcumulado = calcularTotalAcumuladoPagoAteMedicao(medNum);
     } 
     else if (filtroPeriodo !== 'todos') {
         var medNumAteMes = getMedicaoNumByMes(filtroPeriodo);
         if (medNumAteMes) {
-            totalAcumulado = calcularTotalAcumuladoAteMedicao(medNumAteMes);
+            totalAcumulado = calcularTotalAcumuladoPagoAteMedicao(medNumAteMes);
         }
     }
     else if (filtroAno !== 'todos') {
-        totalAcumulado = calcularTotalAcumuladoAteAno(parseInt(filtroAno));
+        totalAcumulado = calcularTotalAcumuladoPagoAteAno(parseInt(filtroAno));
     }
     else {
-        totalAcumulado = calcularTotalAcumuladoAteMedicao(60);
+        totalAcumulado = calcularTotalAcumuladoPagoAteMedicao(60);
     }
     
     var fator = calcularFatorEmpresas();
@@ -962,54 +1116,129 @@ function atualizarCards(filtrados) {
     document.getElementById('pPago').textContent = pct(stats.pago, total);
     document.getElementById('pNao').textContent = pct(stats.nao_iniciado, total);
     
-    if (chart) chart.destroy();
-    var ctx = document.getElementById('graficoStatus').getContext('2d');
-    chart = new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-            labels: ['Entregue', 'Aprovado', 'Análise', 'Pagamento', 'Pago', 'Não Iniciado'],
-            datasets: [{
-                data: [stats.entregue, stats.aprovado, stats.analise, stats.pagamento, stats.pago, stats.nao_iniciado],
-                backgroundColor: ['#28a745', '#17a2b8', '#ffc107', '#fd7e14', '#6f42c1', '#6c757d']
-            }]
-        },
-        options: {responsive: true, maintainAspectRatio: true, plugins: {legend: {position: 'bottom'}}}
+    atualizarGraficoFinanceiro();
+    atualizarGraficoAcumulado(filtrados);
+}
+
+function atualizarGraficoFinanceiro() {
+    var fator = calcularFatorEmpresas();
+    if (fator === 0) fator = 1;
+    
+    var filtroMedicao = document.getElementById('filtroMedicao') ? document.getElementById('filtroMedicao').value : 'todos';
+    var filtroPeriodo = document.getElementById('filtroPeriodo') ? document.getElementById('filtroPeriodo').value : 'todos';
+    var filtroAno = document.getElementById('filtroAno') ? document.getElementById('filtroAno').value : 'todos';
+    var mostrarVazios = document.getElementById('mostrarVazios') ? document.getElementById('mostrarVazios').checked : false;
+    
+    var dadosFiltrados = dados.slice();
+    
+    if (!mostrarVazios) dadosFiltrados = dadosFiltrados.filter(function(d) { return d.data && d.data !== '' && isDataValida(d.data); });
+    if (filtroMedicao !== 'todos') dadosFiltrados = dadosFiltrados.filter(function(d) { return d.med === filtroMedicao; });
+    if (filtroPeriodo !== 'todos') dadosFiltrados = dadosFiltrados.filter(function(d) { return d.mes === filtroPeriodo; });
+    if (filtroAno !== 'todos') dadosFiltrados = dadosFiltrados.filter(function(d) { return extrairAno(d.mes) === filtroAno; });
+    
+    dadosFiltrados = getFilteredDataByEmpresa(dadosFiltrados);
+    
+    var dadosOrdenados = [...dadosFiltrados].sort(function(a, b) {
+        return parseInt(a.med) - parseInt(b.med);
     });
     
-    atualizarGraficoAcumulado(filtrados);
+    var labels = dadosOrdenados.map(function(d) { return d.mes; });
+    var realizados = dadosOrdenados.map(function(d) { return d.realizado; });
+    var previstos = dadosOrdenados.map(function(d) { return d.previsto; });
+    var despesas = dadosOrdenados.map(function(d) { return d.despesa || 0; });
+    var descontos = dadosOrdenados.map(function(d) { 
+        var descPercent = getDescontoPorNDG(d.ndg || 0);
+        return (d.realizado || 0) * (descPercent / 100);
+    });
+    
+    var ctx = document.getElementById('graficoFinanceiro').getContext('2d');
+    if (chartFinanceiro) chartFinanceiro.destroy();
+    
+    var datasets = [
+        {
+            label: 'Realizado (R$)',
+            data: realizados,
+            backgroundColor: 'rgba(23, 162, 184, 0.7)',
+            borderColor: '#17a2b8',
+            borderWidth: 2
+        },
+        {
+            label: 'Previsto (R$)',
+            data: previstos,
+            backgroundColor: 'rgba(108, 117, 125, 0.7)',
+            borderColor: '#6c757d',
+            borderWidth: 2
+        },
+        {
+            label: 'Despesas (R$)',
+            data: despesas,
+            backgroundColor: 'rgba(253, 126, 20, 0.7)',
+            borderColor: '#fd7e14',
+            borderWidth: 2
+        },
+        {
+            label: 'Desconto (R$)',
+            data: descontos,
+            backgroundColor: 'rgba(220, 53, 69, 0.7)',
+            borderColor: '#dc3545',
+            borderWidth: 2,
+            borderDash: [5, 5]
+        }
+    ];
+    
+    var chartConfig = {
+        type: currentChartType,
+        data: { labels: labels, datasets: datasets },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: { position: 'top', labels: { font: { size: 10 } } },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return context.dataset.label + ': ' + context.raw.toLocaleString('pt-BR', {style:'currency', currency:'BRL'});
+                        }
+                    }
+                }
+            },
+            scales: (currentChartType === 'pie' || currentChartType === 'doughnut' || currentChartType === 'radar') ? {} : {
+                y: {
+                    beginAtZero: true,
+                    ticks: { callback: function(v) { return 'R$ ' + (v/1000000).toFixed(1) + 'M'; } }
+                }
+            }
+        }
+    };
+    
+    if (currentChartType === 'bar') {
+        chartConfig.options.scales.x = { ticks: { rotate: 45, font: { size: 9 } } };
+    }
+    
+    chartFinanceiro = new Chart(ctx, chartConfig);
 }
 
 function atualizarGraficoAcumulado(filtrados) {
     var fator = calcularFatorEmpresas();
+    if (fator === 0) fator = 1;
     
     var filtroMedicao = document.getElementById('filtroMedicao') ? document.getElementById('filtroMedicao').value : 'todos';
     var filtroPeriodo = document.getElementById('filtroPeriodo') ? document.getElementById('filtroPeriodo').value : 'todos';
     var filtroAno = document.getElementById('filtroAno') ? document.getElementById('filtroAno').value : 'todos';
     
-    var modoAcumulado = false;
-    var legendaTexto = '';
+    var temFiltroEspecifico = (filtroMedicao !== 'todos') || (filtroPeriodo !== 'todos') || (filtroAno !== 'todos');
     
-    if ((filtroMedicao === 'todos' && filtroPeriodo === 'todos') || 
-        (filtroMedicao === 'todos' && filtroPeriodo === 'todos' && filtroAno !== 'todos')) {
-        modoAcumulado = true;
-        legendaTexto = '📊 Valores ACUMULADOS (visão geral)';
-    } else {
-        modoAcumulado = false;
-        legendaTexto = '📊 Valores MENSAIS (filtro específico)';
-    }
-    
-    if (filtroMedicao !== 'todos' || filtroPeriodo !== 'todos') {
-        modoAcumulado = false;
-        legendaTexto = '📊 Valores MENSAIS (filtro específico)';
-    }
-    
-    document.getElementById('graficoLegenda').innerHTML = legendaTexto;
-    
-    var filtradosComData = filtrados.filter(function(d) {
+    var dadosParaGrafico = filtrados.filter(function(d) {
         return d.data && d.data !== '' && isDataValida(d.data);
     });
     
-    var mesesOrdenados = [...new Set(filtradosComData.map(d => d.mes))].sort(function(a, b) {
+    if (dadosParaGrafico.length === 0) {
+        if (chartAcumulado) chartAcumulado.destroy();
+        document.getElementById('graficoLegenda').innerHTML = '📊 Nenhum dado disponível para o período selecionado';
+        return;
+    }
+    
+    var mesesOrdenados = [...new Set(dadosParaGrafico.map(d => d.mes))].sort(function(a, b) {
         var aAno = parseInt(a.split('/')[1]);
         var bAno = parseInt(b.split('/')[1]);
         if (aAno !== bAno) return aAno - bAno;
@@ -1022,45 +1251,50 @@ function atualizarGraficoAcumulado(filtrados) {
     var labels = mesesOrdenados;
     var dadosRealizado = [];
     var dadosPrevisto = [];
+    var legendaTexto = '';
     
-    if (modoAcumulado) {
+    if (!temFiltroEspecifico) {
+        legendaTexto = '📊 Valores ACUMULADOS (visão geral)';
+        
         var somaRealizado = 0;
+        var somaPrevisto = 0;
+        
         for (var i = 0; i < mesesOrdenados.length; i++) {
             var mes = mesesOrdenados[i];
             var realizadoMes = 0;
+            var previstoMes = 0;
             
-            for (var j = 0; j < filtradosComData.length; j++) {
-                if (filtradosComData[j].mes === mes) {
-                    realizadoMes += filtradosComData[j].realizado;
+            for (var j = 0; j < dadosParaGrafico.length; j++) {
+                if (dadosParaGrafico[j].mes === mes) {
+                    realizadoMes += dadosParaGrafico[j].realizado;
+                    previstoMes += dadosParaGrafico[j].previsto;
                 }
             }
             somaRealizado += realizadoMes;
-            dadosRealizado.push(somaRealizado * fator);
-            
-            var maiorMedNum = 0;
-            for (var j = 0; j < filtradosComData.length; j++) {
-                if (filtradosComData[j].mes === mes) {
-                    var medNum = parseInt(filtradosComData[j].med);
-                    if (medNum > maiorMedNum) maiorMedNum = medNum;
-                }
-            }
-            var previstoAteMes = valorPrevistoMensal * maiorMedNum * fator;
-            dadosPrevisto.push(previstoAteMes);
+            somaPrevisto += previstoMes;
+            dadosRealizado.push(somaRealizado);
+            dadosPrevisto.push(somaPrevisto);
         }
     } else {
+        legendaTexto = '📊 Valores MENSAIS (filtro específico)';
+        
         for (var i = 0; i < mesesOrdenados.length; i++) {
             var mes = mesesOrdenados[i];
             var realizadoMes = 0;
+            var previstoMes = 0;
             
-            for (var j = 0; j < filtradosComData.length; j++) {
-                if (filtradosComData[j].mes === mes) {
-                    realizadoMes += filtradosComData[j].realizado;
+            for (var j = 0; j < dadosParaGrafico.length; j++) {
+                if (dadosParaGrafico[j].mes === mes) {
+                    realizadoMes += dadosParaGrafico[j].realizado;
+                    previstoMes += dadosParaGrafico[j].previsto;
                 }
             }
-            dadosRealizado.push(realizadoMes * fator);
-            dadosPrevisto.push(valorPrevistoMensal * fator);
+            dadosRealizado.push(realizadoMes);
+            dadosPrevisto.push(previstoMes);
         }
     }
+    
+    document.getElementById('graficoLegenda').innerHTML = legendaTexto;
     
     var maxValor = Math.max(...dadosRealizado, ...dadosPrevisto, valorPrevistoMensal);
     var maxValorArredondado = Math.ceil(maxValor / 1000000) * 1000000;
@@ -1075,7 +1309,7 @@ function atualizarGraficoAcumulado(filtrados) {
             labels: labels,
             datasets: [
                 {
-                    label: modoAcumulado ? 'Realizado Acumulado (R$)' : 'Realizado (R$)',
+                    label: !temFiltroEspecifico ? 'Realizado Acumulado (R$)' : 'Realizado (R$)',
                     data: dadosRealizado,
                     borderColor: '#17a2b8',
                     backgroundColor: 'rgba(23, 162, 184, 0.1)',
@@ -1087,7 +1321,7 @@ function atualizarGraficoAcumulado(filtrados) {
                     pointBorderColor: 'white'
                 },
                 {
-                    label: modoAcumulado ? 'Previsto Acumulado (R$)' : 'Previsto (R$)',
+                    label: !temFiltroEspecifico ? 'Previsto Acumulado (R$)' : 'Previsto (R$)',
                     data: dadosPrevisto,
                     borderColor: '#6c757d',
                     backgroundColor: 'transparent',
@@ -1128,22 +1362,26 @@ function atualizarGraficoAcumulado(filtrados) {
 
 function atualizarDiferenca(med) {
     var realizadoInput = document.getElementById('realizado_' + med);
+    var ndgInput = document.getElementById('ndg_' + med);
+    var descontoSpan = document.getElementById('desconto_' + med);
     var diferencaSpan = document.getElementById('diferenca_' + med);
     var fator = calcularFatorEmpresas();
+    if (fator === 0) fator = 1;
     
-    if (realizadoInput && diferencaSpan) {
+    if (realizadoInput && ndgInput && descontoSpan && diferencaSpan) {
         var realizado = parseFloat(realizadoInput.value.replace(/\./g,'').replace(',','.')) || 0;
-        var valorPrevistoProporcional = valorPrevistoMensal * fator;
+        var ndg = parseInt(ndgInput.value) || 0;
+        ndg = Math.min(100, Math.max(0, ndg));
+        ndgInput.value = ndg;
+        ndgInput.className = 'ndg-input ' + getClassePorNDG(ndg);
         
-        if (realizado === 0) {
-            realizado = valorPrevistoProporcional;
-            realizadoInput.value = realizado.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
-        }
+        var descPercent = getDescontoPorNDG(ndg);
+        var valorDesconto = realizado * (descPercent / 100);
+        descontoSpan.innerHTML = formatar(valorDesconto) + ' (' + descPercent + '%)';
+        
+        var valorPrevistoProporcional = valorPrevistoMensal * fator;
         var diferenca = realizado - valorPrevistoProporcional;
-        var perc = (Math.abs(diferenca) / valorPrevistoProporcional) * 100;
-        var sinal = diferenca > 0 ? '+' : '-';
-        var classe = diferenca > 0 ? 'diferenca-acima' : 'diferenca-abaixo';
-        diferencaSpan.innerHTML = '<span class="' + classe + '">' + sinal + ' ' + formatar(Math.abs(diferenca)) + ' (' + perc.toFixed(1) + '%)</span>';
+        diferencaSpan.innerHTML = formatarDiferenca(diferenca, valorPrevistoProporcional);
     }
 }
 
@@ -1153,21 +1391,32 @@ function renderizarTabela(filtrados) {
     
     tbody.innerHTML = '';
     if (filtrados.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="10">Nenhum dado encontrado<\/td><\/tr>';
+        tbody.innerHTML = '<tr><td colspan="13">Nenhum dado encontrado<\/td><\/tr>';
         atualizarCards([]);
         return;
     }
     
     var fator = calcularFatorEmpresas();
+    if (fator === 0) fator = 1;
     var valorPrevistoProporcional = valorPrevistoMensal * fator;
     
-    for (var i = 0; i < filtrados.length; i++) {
-        var d = filtrados[i];
+    var filtradosOrdenados = [...filtrados].sort(function(a, b) {
+        return parseInt(a.med) - parseInt(b.med);
+    });
+    
+    for (var i = 0; i < filtradosOrdenados.length; i++) {
+        var d = filtradosOrdenados[i];
         var row = tbody.insertRow();
         
+        var isNaoIniciado = !d.data || d.data === '' || !isDataValida(d.data);
+        
+        // 1. Med
         row.insertCell(0).innerHTML = d.med;
+        
+        // 2. Mês/Ano
         row.insertCell(1).innerHTML = d.mes;
         
+        // 3. Data Entrega
         var cellData = row.insertCell(2);
         var dataInput = document.createElement('input');
         dataInput.type = 'text';
@@ -1180,50 +1429,91 @@ function renderizarTabela(filtrados) {
         dataInput.onchange = function() { salvarTodos(); };
         cellData.appendChild(dataInput);
         
+        // 4. Previsto - SEMPRE o valor fixo
         var cellPrevisto = row.insertCell(3);
         var previstoSpan = document.createElement('span');
         previstoSpan.className = 'previsto-fixo';
         previstoSpan.innerHTML = formatar(valorPrevistoProporcional);
         cellPrevisto.appendChild(previstoSpan);
         
-        var cellReaj = row.insertCell(4);
-        var reajInput = document.createElement('input');
-        var valorReaj = (d.reaj || 0) * fator;
-        reajInput.value = valorReaj.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
-        reajInput.style.width = '120px';
-        reajInput.id = 'reaj_' + d.med;
-        reajInput.onchange = function() { salvarTodos(); };
-        cellReaj.appendChild(reajInput);
-        
-        var cellRealizado = row.insertCell(5);
+        // 5. Realizado
+        var cellRealizado = row.insertCell(4);
         var realizadoInput = document.createElement('input');
-        var valorRealizado = (d.realizado && d.realizado !== 0) ? d.realizado * fator : valorPrevistoProporcional;
+        var valorRealizado = isNaoIniciado ? 0 : ((d.realizado && d.realizado !== 0) ? d.realizado * fator : valorPrevistoProporcional);
         realizadoInput.value = valorRealizado.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
         realizadoInput.style.width = '120px';
         realizadoInput.id = 'realizado_' + d.med;
         realizadoInput.onchange = (function(med) { return function() { atualizarDiferenca(med); salvarTodos(); }; })(d.med);
         cellRealizado.appendChild(realizadoInput);
         
-        var cellDiferenca = row.insertCell(6);
+        // 6. Reajuste
+        var cellReaj = row.insertCell(5);
+        var reajInput = document.createElement('input');
+        var valorReaj = isNaoIniciado ? 0 : ((d.reaj || 0) * fator);
+        reajInput.value = valorReaj.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+        reajInput.style.width = '120px';
+        reajInput.id = 'reaj_' + d.med;
+        reajInput.onchange = function() { salvarTodos(); };
+        cellReaj.appendChild(reajInput);
+        
+        // 7. Total Acumulado
+        var cellTotalAcumulado = row.insertCell(6);
+        var totalAcumuladoSpan = document.createElement('span');
+        var valorAcumulado = (d.acumulado || 0) * fator;
+        totalAcumuladoSpan.innerHTML = formatar(valorAcumulado);
+        totalAcumuladoSpan.className = 'acumulado-valor';
+        totalAcumuladoSpan.id = 'acumulado_' + d.med;
+        cellTotalAcumulado.appendChild(totalAcumuladoSpan);
+        
+        // 8. Despesas
+        var cellDespesa = row.insertCell(7);
+        var despesaInput = document.createElement('input');
+        var valorDespesa = isNaoIniciado ? 0 : ((d.despesa || 0) * fator);
+        despesaInput.value = valorDespesa.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+        despesaInput.style.width = '120px';
+        despesaInput.id = 'despesa_' + d.med;
+        despesaInput.onchange = function() { salvarTodos(); };
+        despesaInput.style.color = '#fd7e14';
+        despesaInput.style.fontWeight = 'bold';
+        cellDespesa.appendChild(despesaInput);
+        
+        // 9. NDG
+        var cellNDG = row.insertCell(8);
+        var ndgInput = document.createElement('input');
+        ndgInput.type = 'number';
+        ndgInput.min = 0;
+        ndgInput.max = 100;
+        var valorNDG = isNaoIniciado ? 0 : (d.ndg || 100);
+        ndgInput.value = valorNDG;
+        ndgInput.style.width = '70px';
+        ndgInput.style.textAlign = 'center';
+        ndgInput.className = 'ndg-input ' + (isNaoIniciado ? 'ndg-warning' : getClassePorNDG(valorNDG));
+        ndgInput.id = 'ndg_' + d.med;
+        ndgInput.onchange = (function(med) { return function() { atualizarDiferenca(med); salvarTodos(); }; })(d.med);
+        cellNDG.appendChild(ndgInput);
+        
+        // 10. Descontos
+        var cellDesconto = row.insertCell(9);
+        var descontoSpan = document.createElement('span');
+        var descPercent = getDescontoPorNDG(isNaoIniciado ? 0 : (d.ndg || 100));
+        var valorRealizadoCalc = isNaoIniciado ? 0 : ((d.realizado && d.realizado !== 0) ? d.realizado * fator : valorPrevistoProporcional);
+        var valorDesconto = valorRealizadoCalc * (descPercent / 100);
+        descontoSpan.innerHTML = formatar(valorDesconto) + ' (' + descPercent + '%)';
+        descontoSpan.className = 'desconto-valor';
+        descontoSpan.id = 'desconto_' + d.med;
+        cellDesconto.appendChild(descontoSpan);
+        
+        // 11. Diferença
+        var cellDiferenca = row.insertCell(10);
         var diferencaSpan = document.createElement('span');
         diferencaSpan.id = 'diferenca_' + d.med;
-        var valorRealizadoCalc = (d.realizado && d.realizado !== 0) ? d.realizado * fator : valorPrevistoProporcional;
-        var diferenca = valorRealizadoCalc - valorPrevistoProporcional;
-        var perc = (Math.abs(diferenca) / valorPrevistoProporcional) * 100;
-        var sinal = diferenca > 0 ? '+' : '-';
-        var classe = diferenca > 0 ? 'diferenca-acima' : 'diferenca-abaixo';
-        diferencaSpan.innerHTML = '<span class="' + classe + '">' + sinal + ' ' + formatar(Math.abs(diferenca)) + ' (' + perc.toFixed(1) + '%)</span>';
+        var valorRealizadoCalcDif = isNaoIniciado ? 0 : ((d.realizado && d.realizado !== 0) ? d.realizado * fator : valorPrevistoProporcional);
+        var diferenca = valorRealizadoCalcDif - (isNaoIniciado ? 0 : valorPrevistoProporcional);
+        diferencaSpan.innerHTML = formatarDiferenca(diferenca, isNaoIniciado ? 1 : valorPrevistoProporcional);
         cellDiferenca.appendChild(diferencaSpan);
         
-        var cellTotalLiq = row.insertCell(7);
-        var totalLiqSpan = document.createElement('span');
-        var valorTotalLiq = (d.previsto + (d.reaj || 0)) * fator;
-        totalLiqSpan.innerHTML = formatar(valorTotalLiq);
-        totalLiqSpan.style.fontWeight = 'bold';
-        totalLiqSpan.style.color = '#08b9d5';
-        cellTotalLiq.appendChild(totalLiqSpan);
-        
-        var cellStatus = row.insertCell(8);
+        // 12. Status
+        var cellStatus = row.insertCell(11);
         var statusSelect = document.createElement('select');
         statusSelect.id = 'status_' + d.med;
         for (var s = 0; s < statusOptions.length; s++) {
@@ -1236,7 +1526,8 @@ function renderizarTabela(filtrados) {
         statusSelect.onchange = function() { salvarTodos(); };
         cellStatus.appendChild(statusSelect);
         
-        var cellObs = row.insertCell(9);
+        // 13. Observação
+        var cellObs = row.insertCell(12);
         var obsInput = document.createElement('input');
         obsInput.type = 'text';
         obsInput.value = d.obs || '';
@@ -1280,6 +1571,11 @@ function aplicarFiltros() {
     if (st !== 'todos') {
         var stNorm = (st === 'não_iniciado') ? 'nao_iniciado' : st;
         filtrados = filtrados.filter(function(d) { return d.status === stNorm; });
+    }
+    
+    var fator = calcularFatorEmpresas();
+    if (fator > 0 && fator !== 1) {
+        filtrados = getFilteredDataByEmpresa(filtrados);
     }
     
     renderizarTabela(filtrados);
@@ -1331,13 +1627,24 @@ function gerarApresentacao() {
         return d.data && d.data !== '' && isDataValida(d.data); 
     });
     
+    var dadosOrdenados = [...dadosParaApresentacao].sort(function(a, b) {
+        return parseInt(a.med) - parseInt(b.med);
+    });
+    var somaAcumulada = 0;
+    for (var i = 0; i < dadosOrdenados.length; i++) {
+        if (dadosOrdenados[i].data && dadosOrdenados[i].data !== '' && isDataValida(dadosOrdenados[i].data)) {
+            somaAcumulada += dadosOrdenados[i].totalLiq;
+        }
+        dadosOrdenados[i].acumulado = somaAcumulada;
+    }
+    
     var empresasSel = JSON.parse(JSON.stringify(empresasSelecionadas));
     var valorPrevistoStr = valorPrevistoMensal.toLocaleString('pt-BR', {style:'currency', currency:'BRL'});
     
     var mesesUnicos = [], anosUnicos = [];
-    for (var i = 0; i < dadosParaApresentacao.length; i++) {
-        if (mesesUnicos.indexOf(dadosParaApresentacao[i].mes) === -1) mesesUnicos.push(dadosParaApresentacao[i].mes);
-        var ano = dadosParaApresentacao[i].mes.split('/')[1];
+    for (var i = 0; i < dadosOrdenados.length; i++) {
+        if (mesesUnicos.indexOf(dadosOrdenados[i].mes) === -1) mesesUnicos.push(dadosOrdenados[i].mes);
+        var ano = dadosOrdenados[i].mes.split('/')[1];
         if (anosUnicos.indexOf(ano) === -1) anosUnicos.push(ano);
     }
     
@@ -1381,26 +1688,27 @@ function gerarApresentacao() {
 '<div class="kpi-grid" id="kpiGrid"></div>\n' +
 '<div class="filtros"><div class="filtro-group"><label>📅 Mês/Ano:</label><select id="filtroPeriodo" onchange="aplicarFiltros()">' + optionsMeses + '</select></div><div class="filtro-group"><label>📆 Ano:</label><select id="filtroAno" onchange="aplicarFiltros()">' + optionsAnos + '</select></div><div class="filtro-group"><label>🏷️ Status:</label><select id="filtroStatus" onchange="aplicarFiltros()"><option value="todos">Todos</option><option value="entregue">Entregue</option><option value="aprovado">Aprovado</option><option value="analise">Em Análise</option><option value="pagamento">Em Pagamento</option><option value="pago">Pago</option><option value="nao_iniciado">Não Iniciado</option></select></div><button class="btn-clear" onclick="limparFiltros()">🗑️ Limpar Filtros</button></div>\n' +
 '<div class="progress-card"><div class="progress-title"><h2>📈 MEDIÇÃO ACUMULADA</h2><div><span class="total-executado" id="totalExecutadoValor">R$ 0,00</span><span> / R$ 89.863.121,73</span></div></div><div class="progress-bar-container"><div class="progress-bar-fill" id="progressBarFill" style="width:0%;">0%</div></div><div class="progress-stats"><div class="stat-item"><div class="stat-label">Percentual Executado</div><div class="stat-value" id="percExecGrande">0%</div></div><div class="stat-item"><div class="stat-label">Total de Despesas</div><div class="stat-value" id="totalDespGrande">R$ 0,00</div></div><div class="stat-item"><div class="stat-label">Saldo Restante</div><div class="stat-value" id="saldoRestante">R$ 0,00</div></div></div></div>\n' +
-'<div class="graficos-row"><div class="grafico-wrapper"><h3>🥧 Distribuição por Status</h3><canvas id="graficoStatus"></canvas></div><div class="grafico-wrapper"><h3>📈 Realizado vs Previsto</h3><canvas id="graficoAcumulado"></canvas><p style="text-align:center; font-size:11px; color:#666; margin-top:10px;" id="graficoLegenda">📊 Valores mensais (filtro específico) ou acumulados (visão geral)</p></div></div>\n' +
-'<div class="tabela-wrapper"><table id="tabela"><thead><tr><th>Med</th><th>Mês/Ano</th><th>Data</th><th>Previsto</th><th>Reajuste</th><th>Realizado</th><th>Diferença</th><th>Total Líquido</th><th>Status</th><th>Obs</th></table></thead><tbody id="tabelaBody"></tbody></table></div>\n' +
-'<div class="info-grid"><div class="info-box"><b>📋 LEGENDA</b><br><span class="badge badge-entregue">Entregue</span> Documentação<br><span class="badge badge-aprovado">Aprovado</span> Fiscalização<br><span class="badge badge-analise">Análise</span> Verificação<br><span class="badge badge-pagamento">Pagamento</span> Financeiro<br><span class="badge badge-pago">Pago</span> Creditado<br><span class="badge badge-nao-iniciado">Não Iniciado</span> Medição não realizada</div><div class="info-box"><b>ℹ️ INFORMAÇÕES</b><br>Período: 60 meses<br>💰 Valor Previsto por Mês: ' + valorPrevistoStr + '<br>📌 Barra: valor ACUMULADO até a medição selecionada<br>📊 Gráfico: valores MENSAIS quando filtro específico | ACUMULADOS na visão geral<br>📺 Modo visualização</div></div>\n' +
+'<div class="graficos-row"><div class="grafico-wrapper"><h3>💰 Valores Financeiros por Mês</h3><canvas id="graficoFinanceiro"></canvas><p style="text-align:center; font-size:11px; color:#666; margin-top:10px;">📊 Comparativo: Realizado vs Previsto vs Despesas vs Desconto</p></div><div class="grafico-wrapper"><h3>📈 Realizado vs Previsto</h3><canvas id="graficoAcumulado"></canvas><p style="text-align:center; font-size:11px; color:#666; margin-top:10px;" id="graficoLegenda">📊 Valores mensais (filtro específico) ou acumulados (visão geral)</p></div></div>\n' +
+'<div class="tabela-wrapper"><table id="tabela"><thead><tr><th>Med</th><th>Mês/Ano</th><th>Data</th><th>Previsto</th><th>Realizado</th><th>Reajuste</th><th>Total Acumulado</th><th>Despesas</th><th>Descontos</th><th>Diferença</th><th>Status</th><th>Obs</th></tr></thead><tbody id="tabelaBody"></tbody></table></div>\n' +
+'<div class="info-grid"><div class="info-box"><b>📋 LEGENDA</b><br><span class="badge badge-entregue">Entregue</span> Documentação<br><span class="badge badge-aprovado">Aprovado</span> Fiscalização<br><span class="badge badge-analise">Análise</span> Verificação<br><span class="badge badge-pagamento">Pagamento</span> Financeiro<br><span class="badge badge-pago">Pago</span> Creditado<br><span class="badge badge-nao-iniciado">Não Iniciado</span> Medição não realizada</div><div class="info-box"><b>ℹ️ INFORMAÇÕES</b><br>Período: 60 meses<br>💰 Valor Previsto por Mês: ' + valorPrevistoStr + '<br>📌 Barra: valor ACUMULADO apenas de medições com status PAGO<br>📊 Total Acumulado = SOMA(Previsto + Reajuste)<br>🎯 Desconto: ≥90=0% | 80-89=2,5% | 70-79=5% | 50-69=7,5% | &lt;50=10%<br>📺 Modo visualização</div></div>\n' +
 '</div>\n<script>\n' +
-'var dadosOriginais = ' + JSON.stringify(dadosParaApresentacao) + ';\n' +
+'var dadosOriginais = ' + JSON.stringify(dadosOrdenados) + ';\n' +
 'var totalContrato = ' + totalContrato + ';\n' +
 'var valorPrevistoMensal = ' + valorPrevistoMensal + ';\n' +
-'var empresasSelecionadas = {};\n' +
+'var empresasSelecionadas = ' + JSON.stringify(empresasSel) + ';\n' +
 'var percentuais = {LBR:0.35,Progetto:0.35,EHP:0.15,Prisma:0.15};\n' +
 'var statusTexto = {entregue:"Entregue",aprovado:"Aprovado",analise:"Em Análise",pagamento:"Em Pagamento",pago:"Pago",nao_iniciado:"Não Iniciado"};\n' +
 'var statusCor = {entregue:"badge-entregue",aprovado:"badge-aprovado",analise:"badge-analise",pagamento:"badge-pagamento",pago:"badge-pago",nao_iniciado:"badge-nao-iniciado"};\n' +
 'function isDataValida(dataStr){if(!dataStr||dataStr.length!==10)return false;var p=dataStr.split("/");if(p.length!==3)return false;var d=parseInt(p[0]),m=parseInt(p[1]),a=parseInt(p[2]);if(isNaN(d)||isNaN(m)||isNaN(a))return false;if(d<1||d>31)return false;if(m<1||m>12)return false;if(a<2025||a>2030)return false;return true;}\n' +
 'function formatarJs(v){if(v&&v!==0&&!isNaN(v)) return v.toLocaleString("pt-BR",{style:"currency",currency:"BRL"}); return "R$ 0,00";}\n' +
+'function getDescontoPorNDG(ndg){if(ndg>=90)return 0;if(ndg>=80)return 2.5;if(ndg>=70)return 5;if(ndg>=50)return 7.5;return 10;}\n' +
 'function formatarDif(d, prev){if(d===0) return "R$ 0,00"; var p=(Math.abs(d)/prev)*100; var s=d>0?"+":"-"; var c=d>0?"diferenca-acima":"diferenca-abaixo"; return "<span class=\'"+c+"\'>"+s+" "+formatarJs(Math.abs(d))+" ("+p.toFixed(1)+"%)</span>";}\n' +
 'function extrairAno(mes){return mes.split("/")[1];}\n' +
 'function calcularFator(){var t=0;for(var e in empresasSelecionadas)if(empresasSelecionadas[e])t+=percentuais[e];return t===0?1:t;}\n' +
-'function aplicarFator(dados, fator){return dados.map(function(item){var novo=JSON.parse(JSON.stringify(item));novo.reaj*=fator;novo.realizado*=fator;novo.totalLiq*=fator;return novo;});}\n' +
+'function aplicarFator(dados, fator){return dados.map(function(item){var novo=JSON.parse(JSON.stringify(item));novo.reaj*=fator;novo.realizado*=fator;novo.despesa*=fator;novo.acumulado*=fator;return novo;});}\n' +
 'function getMedicaoNumByMes(mesAno){for(var i=0;i<dadosOriginais.length;i++){if(dadosOriginais[i].mes===mesAno){return parseInt(dadosOriginais[i].med);}}return null;}\n' +
-'function calcularTotalAcumuladoAteMedicao(medNum){var total=0;for(var i=0;i<dadosOriginais.length;i++){var medAtual=parseInt(dadosOriginais[i].med);var temDataValida=dadosOriginais[i].data&&dadosOriginais[i].data!==""&&isDataValida(dadosOriginais[i].data);if(medAtual<=medNum&&temDataValida){total+=dadosOriginais[i].realizado;}}return total;}\n' +
-'function calcularTotalAcumuladoAteAno(ano){var ultimaMedNoAno=0;for(var i=0;i<dadosOriginais.length;i++){var anoMed=parseInt(dadosOriginais[i].mes.split("/")[1]);var medNum=parseInt(dadosOriginais[i].med);if(anoMed==ano&&medNum>ultimaMedNoAno){ultimaMedNoAno=medNum;}}return calcularTotalAcumuladoAteMedicao(ultimaMedNoAno);}\n' +
+'function calcularTotalAcumuladoPagoAteMedicao(medNum){var total=0;for(var i=0;i<dadosOriginais.length;i++){var medAtual=parseInt(dadosOriginais[i].med);var temDataValida=dadosOriginais[i].data&&dadosOriginais[i].data!==""&&isDataValida(dadosOriginais[i].data);var isPago=dadosOriginais[i].status==="pago";if(medAtual<=medNum&&temDataValida&&isPago){total+=dadosOriginais[i].totalLiq;}}return total;}\n' +
+'function calcularTotalAcumuladoPagoAteAno(ano){var ultimaMedNoAno=0;for(var i=0;i<dadosOriginais.length;i++){var anoMed=parseInt(dadosOriginais[i].mes.split("/")[1]);var medNum=parseInt(dadosOriginais[i].med);if(anoMed==ano&&medNum>ultimaMedNoAno){ultimaMedNoAno=medNum;}}return calcularTotalAcumuladoPagoAteMedicao(ultimaMedNoAno);}\n' +
 'function atualizarTudo(dadosFiltrados, fatorSelecionado) {\n' +
 '    var stats = {entregue:0, aprovado:0, analise:0, pagamento:0, pago:0, nao_iniciado:0};\n' +
 '    var totalDespesas = 0;\n' +
@@ -1408,20 +1716,16 @@ function gerarApresentacao() {
 '        stats[dadosFiltrados[i].status]++;\n' +
 '        totalDespesas += dadosFiltrados[i].despesa||0;\n' +
 '    }\n' +
-'    var filtroMedicao = document.getElementById("filtroMedicao") ? document.getElementById("filtroMedicao").value : "todos";\n' +
 '    var filtroPeriodo = document.getElementById("filtroPeriodo") ? document.getElementById("filtroPeriodo").value : "todos";\n' +
 '    var filtroAno = document.getElementById("filtroAno") ? document.getElementById("filtroAno").value : "todos";\n' +
 '    var totalAcumulado = 0;\n' +
-'    if(filtroMedicao !== "todos"){\n' +
-'        var medNum = parseInt(filtroMedicao);\n' +
-'        totalAcumulado = calcularTotalAcumuladoAteMedicao(medNum) * fatorSelecionado;\n' +
-'    } else if(filtroPeriodo !== "todos"){\n' +
-'        var medNumAteMes = getMedicaoNumByMes(filtroPeriodo);\n' +
-'        if(medNumAteMes) totalAcumulado = calcularTotalAcumuladoAteMedicao(medNumAteMes) * fatorSelecionado;\n' +
+'    if(filtroPeriodo !== "todos"){\n' +
+'        var medNum = getMedicaoNumByMes(filtroPeriodo);\n' +
+'        if(medNum) totalAcumulado = calcularTotalAcumuladoPagoAteMedicao(medNum) * fatorSelecionado;\n' +
 '    } else if(filtroAno !== "todos"){\n' +
-'        totalAcumulado = calcularTotalAcumuladoAteAno(parseInt(filtroAno)) * fatorSelecionado;\n' +
+'        totalAcumulado = calcularTotalAcumuladoPagoAteAno(parseInt(filtroAno)) * fatorSelecionado;\n' +
 '    } else {\n' +
-'        totalAcumulado = calcularTotalAcumuladoAteMedicao(60) * fatorSelecionado;\n' +
+'        totalAcumulado = calcularTotalAcumuladoPagoAteMedicao(60) * fatorSelecionado;\n' +
 '    }\n' +
 '    document.getElementById("totalSelecionado").innerHTML="💰 Total Selecionado: "+formatarJs(totalAcumulado)+" ("+(fatorSelecionado*100).toFixed(1)+"% do Contrato)";\n' +
 '    document.getElementById("totalExecutadoValor").innerHTML=formatarJs(totalAcumulado);\n' +
@@ -1431,7 +1735,7 @@ function gerarApresentacao() {
 '    document.getElementById("progressBarFill").innerHTML=perc.toFixed(1)+"%";\n' +
 '    document.getElementById("saldoRestante").innerHTML=formatarJs(totalContrato-totalAcumulado);\n' +
 '    document.getElementById("totalDespGrande").innerHTML=formatarJs(totalDespesas);\n' +
-'    for(var e in percentuais){var el=document.getElementById("valor"+e);if(el)el.innerHTML=empresasSelecionadas[e]?formatarJs(calcularTotalAcumuladoAteMedicao(60)*percentuais[e]):"🔒 "+formatarJs(calcularTotalAcumuladoAteMedicao(60)*percentuais[e]);}\n' +
+'    for(var e in percentuais){var el=document.getElementById("valor"+e);if(el)el.innerHTML=empresasSelecionadas[e]?formatarJs(calcularTotalAcumuladoPagoAteMedicao(60)*percentuais[e]):"🔒 "+formatarJs(calcularTotalAcumuladoPagoAteMedicao(60)*percentuais[e]);}\n' +
 '    var total=dadosFiltrados.length;\n' +
 '    var pct=function(v,t){return t?((v/t)*100).toFixed(1)+"%":"0%";};\n' +
 '    document.getElementById("totalEntregue").textContent=stats.entregue;\n' +
@@ -1447,51 +1751,34 @@ function gerarApresentacao() {
 '    document.getElementById("pPago").textContent=pct(stats.pago,total);\n' +
 '    document.getElementById("pNao").textContent=pct(stats.nao_iniciado,total);\n' +
 '    \n' +
-'    var ctxStatus=document.getElementById("graficoStatus").getContext("2d");\n' +
-'    if(window.chartStatus)window.chartStatus.destroy();\n' +
-'    window.chartStatus=new Chart(ctxStatus,{type:"doughnut",data:{labels:["Entregue","Aprovado","Análise","Pagamento","Pago","Não Iniciado"],datasets:[{data:[stats.entregue,stats.aprovado,stats.analise,stats.pagamento,stats.pago,stats.nao_iniciado],backgroundColor:["#28a745","#17a2b8","#ffc107","#fd7e14","#6f42c1","#6c757d"]}]},options:{responsive:true,plugins:{legend:{position:"bottom"}}}});\n' +
+'    var dadosFinanceiros = dadosFiltrados.filter(function(d){return d.data&&d.data!==""&&isDataValida(d.data);});\n' +
+'    var labels = dadosFinanceiros.map(function(d){return d.mes;});\n' +
+'    var realizados = dadosFinanceiros.map(function(d){return d.realizado;});\n' +
+'    var previstos = dadosFinanceiros.map(function(d){return d.previsto;});\n' +
+'    var despesas = dadosFinanceiros.map(function(d){return d.despesa||0;});\n' +
+'    var descontos = dadosFinanceiros.map(function(d){var descPercent=getDescontoPorNDG(d.ndg||100); return (d.realizado||0)*(descPercent/100);});\n' +
+'    var ctxFin = document.getElementById("graficoFinanceiro").getContext("2d");\n' +
+'    if(window.chartFin)window.chartFin.destroy();\n' +
+'    window.chartFin = new Chart(ctxFin,{type:"bar",data:{labels:labels,datasets:[{label:"Realizado (R$)",data:realizados,backgroundColor:"rgba(23,162,184,0.7)",borderColor:"#17a2b8",borderWidth:2},{label:"Previsto (R$)",data:previstos,backgroundColor:"rgba(108,117,125,0.7)",borderColor:"#6c757d",borderWidth:2},{label:"Despesas (R$)",data:despesas,backgroundColor:"rgba(253,126,20,0.7)",borderColor:"#fd7e14",borderWidth:2},{label:"Desconto (R$)",data:descontos,backgroundColor:"rgba(220,53,69,0.7)",borderColor:"#dc3545",borderWidth:2,borderDash:[5,5]}]},options:{responsive:true,scales:{y:{beginAtZero:true,ticks:{callback:function(v){return"R$ "+(v/1000000).toFixed(1)+"M";}}}}}});\n' +
 '    \n' +
-'    var filtradosComData=dadosFiltrados.filter(function(d){return d.data&&d.data!==""&&isDataValida(d.data);});\n' +
-'    var mesesOrdenados = [...new Set(filtradosComData.map(d => d.mes))].sort(function(a,b){var aA=parseInt(a.split("/")[1]),bA=parseInt(b.split("/")[1]);if(aA!==bA)return aA-bA;var meses={jan:1,fev:2,mar:3,abr:4,mai:5,jun:6,jul:7,ago:8,set:9,out:10,nov:11,dez:12};return meses[a.split("/")[0]]-meses[b.split("/")[0]];});\n' +
-'    var modoAcumulado = (filtroMedicao === "todos" && filtroPeriodo === "todos");\n' +
-'    var dadosRealizado = [];\n' +
-'    var dadosPrevisto = [];\n' +
-'    if(modoAcumulado){\n' +
-'        var somaRealizado = 0;\n' +
-'        for(var i=0;i<mesesOrdenados.length;i++){\n' +
-'            var mes = mesesOrdenados[i];\n' +
-'            var realizadoMes = 0;\n' +
-'            for(var j=0;j<filtradosComData.length;j++){\n' +
-'                if(filtradosComData[j].mes === mes) realizadoMes += filtradosComData[j].realizado;\n' +
-'            }\n' +
-'            somaRealizado += realizadoMes;\n' +
-'            dadosRealizado.push(somaRealizado * fatorSelecionado);\n' +
-'            var maiorMedNum = 0;\n' +
-'            for(var j=0;j<filtradosComData.length;j++){\n' +
-'                if(filtradosComData[j].mes === mes){\n' +
-'                    var medNum = parseInt(filtradosComData[j].med);\n' +
-'                    if(medNum > maiorMedNum) maiorMedNum = medNum;\n' +
-'                }\n' +
-'            }\n' +
-'            dadosPrevisto.push(valorPrevistoMensal * maiorMedNum * fatorSelecionado);\n' +
-'        }\n' +
+'    var filtrosComData = dadosFiltrados.filter(function(d){return d.data&&d.data!==""&&isDataValida(d.data);});\n' +
+'    var mesesOrdenados = [...new Set(filtrosComData.map(d => d.mes))].sort(function(a,b){var aA=parseInt(a.split("/")[1]),bA=parseInt(b.split("/")[1]);if(aA!==bA)return aA-bA;var meses={jan:1,fev:2,mar:3,abr:4,mai:5,jun:6,jul:7,ago:8,set:9,out:10,nov:11,dez:12};return meses[a.split("/")[0]]-meses[b.split("/")[0]];});\n' +
+'    var filtroMedicaoVal = document.getElementById("filtroMedicao") ? document.getElementById("filtroMedicao").value : "todos";\n' +
+'    var filtroPeriodoVal = document.getElementById("filtroPeriodo") ? document.getElementById("filtroPeriodo").value : "todos";\n' +
+'    var filtroAnoVal = document.getElementById("filtroAno") ? document.getElementById("filtroAno").value : "todos";\n' +
+'    var temFiltroEspecifico = (filtroMedicaoVal !== "todos") || (filtroPeriodoVal !== "todos") || (filtroAnoVal !== "todos");\n' +
+'    var dadosRealizadoMensal=[],dadosPrevistoMensal=[];\n' +
+'    if(!temFiltroEspecifico){\n' +
+'        var somaRealizado=0, somaPrevisto=0;\n' +
+'        for(var i=0;i<mesesOrdenados.length;i++){var mes=mesesOrdenados[i];var realizadoMes=0,previstoMes=0;for(var j=0;j<filtrosComData.length;j++){if(filtrosComData[j].mes===mes){realizadoMes+=filtrosComData[j].realizado;previstoMes+=filtrosComData[j].previsto;}}somaRealizado+=realizadoMes;somaPrevisto+=previstoMes;dadosRealizadoMensal.push(somaRealizado);dadosPrevistoMensal.push(somaPrevisto);}\n' +
 '    } else {\n' +
-'        for(var i=0;i<mesesOrdenados.length;i++){\n' +
-'            var mes = mesesOrdenados[i];\n' +
-'            var realizadoMes = 0;\n' +
-'            for(var j=0;j<filtradosComData.length;j++){\n' +
-'                if(filtradosComData[j].mes === mes) realizadoMes += filtradosComData[j].realizado;\n' +
-'            }\n' +
-'            dadosRealizado.push(realizadoMes * fatorSelecionado);\n' +
-'            dadosPrevisto.push(valorPrevistoMensal * fatorSelecionado);\n' +
-'        }\n' +
+'        for(var i=0;i<mesesOrdenados.length;i++){var mes=mesesOrdenados[i];var realizadoMes=0,previstoMes=0;for(var j=0;j<filtrosComData.length;j++){if(filtrosComData[j].mes===mes){realizadoMes+=filtrosComData[j].realizado;previstoMes+=filtrosComData[j].previsto;}}dadosRealizadoMensal.push(realizadoMes);dadosPrevistoMensal.push(previstoMes);}\n' +
 '    }\n' +
-'    var maxValor=Math.max.apply(null,dadosRealizado.concat(dadosPrevisto,[valorPrevistoMensal]));\n' +
-'    var maxArr=Math.ceil(maxValor/1000000)*1000000;if(maxArr===0)maxArr=2000000;\n' +
-'    var ctxAcum=document.getElementById("graficoAcumulado").getContext("2d");\n' +
-'    if(window.chartAcum)window.chartAcum.destroy();\n' +
-'    if(mesesOrdenados.length>0)window.chartAcum=new Chart(ctxAcum,{type:"line",data:{labels:mesesOrdenados,datasets:[{label:modoAcumulado?"Realizado Acumulado (R$)":"Realizado (R$)",data:dadosRealizado,borderColor:"#17a2b8",backgroundColor:"rgba(23,162,184,0.1)",borderWidth:3,fill:true,pointRadius:5,pointBackgroundColor:"#17a2b8"},{label:modoAcumulado?"Previsto Acumulado (R$)":"Previsto (R$)",data:dadosPrevisto,borderColor:"#6c757d",backgroundColor:"transparent",borderWidth:2,borderDash:[5,5],pointRadius:4,pointBackgroundColor:"#6c757d"}]},options:{responsive:true,scales:{y:{beginAtZero:true,max:maxArr,ticks:{callback:function(v){return"R$ "+(v/1000000).toFixed(1)+"M";}}}}}});\n' +
-'    var legendaTexto = modoAcumulado ? "📊 Valores ACUMULADOS (visão geral)" : "📊 Valores MENSAIS (filtro específico)";\n' +
+'    var fatorAtual = calcularFator();\n' +
+'    dadosRealizadoMensal = dadosRealizadoMensal.map(function(v){ return v * fatorAtual; });\n' +
+'    dadosPrevistoMensal = dadosPrevistoMensal.map(function(v){ return v * fatorAtual; });\n' +
+'    var maxValor=Math.max.apply(null,dadosRealizadoMensal.concat(dadosPrevistoMensal,[valorPrevistoMensal]));var maxArr=Math.ceil(maxValor/1000000)*1000000;if(maxArr===0)maxArr=2000000;var ctxAcum=document.getElementById("graficoAcumulado").getContext("2d");if(window.chartAcum)window.chartAcum.destroy();if(mesesOrdenados.length>0)window.chartAcum=new Chart(ctxAcum,{type:"line",data:{labels:mesesOrdenados,datasets:[{label:!temFiltroEspecifico?"Realizado Acumulado (R$)":"Realizado (R$)",data:dadosRealizadoMensal,borderColor:"#17a2b8",backgroundColor:"rgba(23,162,184,0.1)",borderWidth:3,fill:true,pointRadius:5,pointBackgroundColor:"#17a2b8"},{label:!temFiltroEspecifico?"Previsto Acumulado (R$)":"Previsto (R$)",data:dadosPrevistoMensal,borderColor:"#6c757d",backgroundColor:"transparent",borderWidth:2,borderDash:[5,5],pointRadius:4,pointBackgroundColor:"#6c757d"}]},options:{responsive:true,scales:{y:{beginAtZero:true,max:maxArr,ticks:{callback:function(v){return"R$ "+(v/1000000).toFixed(1)+"M";}}}}}});\n' +
+'    var legendaTexto = !temFiltroEspecifico ? "📊 Valores ACUMULADOS (visão geral)" : "📊 Valores MENSAIS (filtro específico)";\n' +
 '    document.getElementById("graficoLegenda").innerHTML = legendaTexto;\n' +
 '}\n' +
 'function renderizarTabela(){\n' +
@@ -1504,19 +1791,23 @@ function gerarApresentacao() {
 '    filtrados=aplicarFator(filtrados,fator);\n' +
 '    var tbody=document.getElementById("tabelaBody");\n' +
 '    tbody.innerHTML="";\n' +
-'    if(filtrados.length===0){tbody.innerHTML="<tr><td colspan=10>Nenhum dado encontrado<\/td><\/tr>";atualizarTudo([],fator);return;}\n' +
+'    if(filtrados.length===0){tbody.innerHTML="<tr><td colspan=12>Nenhum dado encontrado<\/td><\/tr>";atualizarTudo([],fator);return;}\n' +
 '    for(var i=0;i<filtrados.length;i++){var d=filtrados[i];var row=tbody.insertRow();\n' +
 '        row.insertCell(0).innerHTML=d.med;\n' +
 '        row.insertCell(1).innerHTML=d.mes;\n' +
 '        row.insertCell(2).innerHTML=d.data||"";\n' +
 '        row.insertCell(3).innerHTML=formatarJs(valorPrevistoMensal*fator);\n' +
-'        row.insertCell(4).innerHTML=formatarJs(d.reaj);\n' +
-'        row.insertCell(5).innerHTML=formatarJs(d.realizado);\n' +
+'        row.insertCell(4).innerHTML=formatarJs(d.realizado);\n' +
+'        row.insertCell(5).innerHTML=formatarJs(d.reaj);\n' +
+'        row.insertCell(6).innerHTML=formatarJs(d.acumulado);\n' +
+'        row.insertCell(7).innerHTML=formatarJs(d.despesa||0);\n' +
+'        var descPercent = getDescontoPorNDG(d.ndg || 100);\n' +
+'        var valorDesconto = d.realizado * (descPercent / 100);\n' +
+'        row.insertCell(8).innerHTML=formatarJs(valorDesconto)+" ("+descPercent+"%)";\n' +
 '        var dif=d.realizado-(valorPrevistoMensal*fator);\n' +
-'        row.insertCell(6).innerHTML=formatarDif(dif, valorPrevistoMensal*fator);\n' +
-'        row.insertCell(7).innerHTML=formatarJs(d.totalLiq);\n' +
-'        row.insertCell(8).innerHTML="<span class=\\"badge "+statusCor[d.status]+"\\">"+statusTexto[d.status]+"</span>";\n' +
-'        row.insertCell(9).innerHTML=d.obs||"";\n' +
+'        row.insertCell(9).innerHTML=formatarDif(dif, valorPrevistoMensal*fator);\n' +
+'        row.insertCell(10).innerHTML="<span class=\\"badge "+statusCor[d.status]+"\\">"+statusTexto[d.status]+"</span>";\n' +
+'        row.insertCell(11).innerHTML=d.obs||"";\n' +
 '    }\n' +
 '    atualizarTudo(filtrados, fator);\n' +
 '}\n' +
