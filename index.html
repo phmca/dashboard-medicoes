@@ -616,12 +616,12 @@
                     <th>Data Entrega</th>
                     <th>Previsto</th>
                     <th>Realizado</th>
+                    <th>Diferença (Realizado - Previsto)</th>
                     <th>Reajuste</th>
                     <th>Total Acumulado</th>
                     <th>Despesas</th>
                     <th>NDG</th>
                     <th>Descontos</th>
-                    <th>Diferença</th>
                     <th>Status</th>
                     <th>Observação</th>
                 </tr>
@@ -644,16 +644,16 @@
             <b>ℹ️ INFORMAÇÕES</b><br><br>
             <span>Período: 60 meses (Set/2025 a Ago/2030)</span><br>
             <span style="font-weight:bold;">💰 Valor Previsto por Mês: R$ 1.497.718,70 (fixo)</span><br>
-            <span>📌 Barra de progresso: valor ACUMULADO apenas de medições com status = PAGO</span><br>
-            <span>📊 Total Acumulado = SOMA(Previsto + Reajuste) acumulado mês a mês</span><br>
+            <span>📌 Barra de progresso: valor ACUMULADO apenas de medições com status = PAGO (somando PREVISTO + REAJUSTE)</span><br>
+            <span>📊 Total de Despesas: soma apenas de medições com status = PAGO</span><br>
             <span>⭐ NDG (Nota de Desempenho): 0-100</span><br>
             <span>🎯 Desconto: ≥90=0% | 80-89=2,5% | 70-79=5% | 50-69=7,5% | &lt;50=10%</span><br>
             <span>🔍 Clique nos cards para filtrar por status</span><br>
             <span>💾 As alterações são salvas automaticamente no navegador</span>
             <div class="valor-previsto-mensal">
-                📊 Diferença = Realizado - Previsto (considerando % empresas selecionadas)<br>
-                <span style="color:#ffcccc;">🔴 Acima do previsto</span> | 
-                <span style="color:#90EE90;">🟢 Abaixo do previsto</span> |
+                📊 Diferença (Realizado - Previsto)<br>
+                <span style="color:#ffcccc;">🔴 Acima do previsto (gastou mais)</span> | 
+                <span style="color:#90EE90;">🟢 Abaixo do previsto (economizou)</span> |
                 <span style="color:#fff;">🔵 Igual ao previsto</span>
             </div>
         </div>
@@ -780,7 +780,7 @@ function calcularTotalAcumuladoPagoAteMedicao(medicaoNum) {
         var temDataValida = dados[i].data && dados[i].data !== '' && isDataValida(dados[i].data);
         var isPago = dados[i].status === 'pago';
         if (medAtual <= medicaoNum && temDataValida && isPago) {
-            total += dados[i].totalLiq;
+            total += dados[i].totalLiq || 0;
         }
     }
     return total;
@@ -895,14 +895,14 @@ function gerarDadosIniciais() {
     var idx = 8;
     
     var valoresBase = {
-        1: { reaj: 0, status: "aprovado", data: "30/09/2025", realizado: 1888413.42, ndg: 85, despesa: 123453.67, obs: "Tudo ok" },
-        2: { reaj: 0, status: "aprovado", data: "31/10/2025", realizado: 1713422.19, ndg: 92, despesa: 76872.90, obs: "" },
-        3: { reaj: 57428.89, status: "aprovado", data: "30/11/2025", realizado: 1590289.17, ndg: 85, despesa: 0, obs: "" },
+        1: { reaj: 0, status: "pago", data: "30/09/2025", realizado: 1888413.42, ndg: 85, despesa: 0, obs: "" },
+        2: { reaj: 0, status: "pago", data: "31/10/2025", realizado: 1713422.19, ndg: 92, despesa: 0, obs: "" },
+        3: { reaj: 57428.89, status: "pago", data: "30/11/2025", realizado: 1590289.17, ndg: 85, despesa: 0, obs: "" },
         4: { reaj: 55024.77, status: "aprovado", data: "31/12/2025", realizado: 1524232.70, ndg: 88, despesa: 0, obs: "" },
         5: { reaj: 51897.21, status: "analise", data: "31/01/2026", realizado: 1437596.56, ndg: 75, despesa: 0, obs: "" },
         6: { reaj: 0, status: "analise", data: "01/02/2026", realizado: 1437596.56, ndg: 72, despesa: 0, obs: "" },
         7: { reaj: 0, status: "aprovado", data: "01/03/2026", realizado: 1437596.56, ndg: 78, despesa: 0, obs: "" },
-        8: { reaj: 0, status: "aprovado", data: "04/04/2026", realizado: 1437596.56, ndg: 78, despesa: 0, obs: "" }
+        8: { reaj: 0, status: "entregue", data: "04/04/2026", realizado: 1437596.56, ndg: 78, despesa: 0, obs: "" }
     };
     
     for (var c = 1; c <= 60; c++) {
@@ -915,7 +915,7 @@ function gerarDadosIniciais() {
             dataEntrega = valoresBase[c].data;
             realizado = valoresBase[c].realizado;
             ndg = valoresBase[c].ndg;
-            despesa = valoresBase[c].despesa;
+            despesa = 0;
             obs = valoresBase[c].obs || "";
         } else {
             status = "nao_iniciado";
@@ -935,7 +935,7 @@ function gerarDadosIniciais() {
             obs: obs,
             realizado: realizado,
             ndg: ndg,
-            despesa: despesa,
+            despesa: 0,
             totalLiq: valorPrevistoMensal + reaj,
             acumulado: 0
         });
@@ -1061,7 +1061,9 @@ function atualizarCards(filtrados) {
     
     for (var i = 0; i < filtrados.length; i++) {
         stats[filtrados[i].status]++;
-        totalDespesas += filtrados[i].despesa || 0;
+        if (filtrados[i].status === 'pago') {
+            totalDespesas += filtrados[i].despesa || 0;
+        }
     }
     
     document.getElementById('totalEntregue').textContent = stats.entregue;
@@ -1446,8 +1448,17 @@ function renderizarTabela(filtrados) {
         realizadoInput.onchange = (function(med) { return function() { atualizarDiferenca(med); salvarTodos(); }; })(d.med);
         cellRealizado.appendChild(realizadoInput);
         
-        // 6. Reajuste
-        var cellReaj = row.insertCell(5);
+        // 6. Diferença
+        var cellDiferenca = row.insertCell(5);
+        var diferencaSpan = document.createElement('span');
+        diferencaSpan.id = 'diferenca_' + d.med;
+        var valorRealizadoCalcDif = isNaoIniciado ? 0 : ((d.realizado && d.realizado !== 0) ? d.realizado * fator : valorPrevistoProporcional);
+        var diferenca = valorRealizadoCalcDif - (isNaoIniciado ? 0 : valorPrevistoProporcional);
+        diferencaSpan.innerHTML = formatarDiferenca(diferenca, isNaoIniciado ? 1 : valorPrevistoProporcional);
+        cellDiferenca.appendChild(diferencaSpan);
+        
+        // 7. Reajuste
+        var cellReaj = row.insertCell(6);
         var reajInput = document.createElement('input');
         var valorReaj = isNaoIniciado ? 0 : ((d.reaj || 0) * fator);
         reajInput.value = valorReaj.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
@@ -1456,8 +1467,8 @@ function renderizarTabela(filtrados) {
         reajInput.onchange = function() { salvarTodos(); };
         cellReaj.appendChild(reajInput);
         
-        // 7. Total Acumulado
-        var cellTotalAcumulado = row.insertCell(6);
+        // 8. Total Acumulado
+        var cellTotalAcumulado = row.insertCell(7);
         var totalAcumuladoSpan = document.createElement('span');
         var valorAcumulado = (d.acumulado || 0) * fator;
         totalAcumuladoSpan.innerHTML = formatar(valorAcumulado);
@@ -1465,8 +1476,8 @@ function renderizarTabela(filtrados) {
         totalAcumuladoSpan.id = 'acumulado_' + d.med;
         cellTotalAcumulado.appendChild(totalAcumuladoSpan);
         
-        // 8. Despesas
-        var cellDespesa = row.insertCell(7);
+        // 9. Despesas
+        var cellDespesa = row.insertCell(8);
         var despesaInput = document.createElement('input');
         var valorDespesa = isNaoIniciado ? 0 : ((d.despesa || 0) * fator);
         despesaInput.value = valorDespesa.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
@@ -1477,8 +1488,8 @@ function renderizarTabela(filtrados) {
         despesaInput.style.fontWeight = 'bold';
         cellDespesa.appendChild(despesaInput);
         
-        // 9. NDG
-        var cellNDG = row.insertCell(8);
+        // 10. NDG
+        var cellNDG = row.insertCell(9);
         var ndgInput = document.createElement('input');
         ndgInput.type = 'number';
         ndgInput.min = 0;
@@ -1492,8 +1503,8 @@ function renderizarTabela(filtrados) {
         ndgInput.onchange = (function(med) { return function() { atualizarDiferenca(med); salvarTodos(); }; })(d.med);
         cellNDG.appendChild(ndgInput);
         
-        // 10. Descontos
-        var cellDesconto = row.insertCell(9);
+        // 11. Descontos
+        var cellDesconto = row.insertCell(10);
         var descontoSpan = document.createElement('span');
         var descPercent = getDescontoPorNDG(isNaoIniciado ? 0 : (d.ndg || 100));
         var valorRealizadoCalc = isNaoIniciado ? 0 : ((d.realizado && d.realizado !== 0) ? d.realizado * fator : valorPrevistoProporcional);
@@ -1502,15 +1513,6 @@ function renderizarTabela(filtrados) {
         descontoSpan.className = 'desconto-valor';
         descontoSpan.id = 'desconto_' + d.med;
         cellDesconto.appendChild(descontoSpan);
-        
-        // 11. Diferença
-        var cellDiferenca = row.insertCell(10);
-        var diferencaSpan = document.createElement('span');
-        diferencaSpan.id = 'diferenca_' + d.med;
-        var valorRealizadoCalcDif = isNaoIniciado ? 0 : ((d.realizado && d.realizado !== 0) ? d.realizado * fator : valorPrevistoProporcional);
-        var diferenca = valorRealizadoCalcDif - (isNaoIniciado ? 0 : valorPrevistoProporcional);
-        diferencaSpan.innerHTML = formatarDiferenca(diferenca, isNaoIniciado ? 1 : valorPrevistoProporcional);
-        cellDiferenca.appendChild(diferencaSpan);
         
         // 12. Status
         var cellStatus = row.insertCell(11);
@@ -1666,6 +1668,7 @@ function gerarApresentacao() {
     var optionsAnos = '<option value="todos">Todos os Anos</option>';
     for (var i = 0; i < anosUnicos.length; i++) optionsAnos += '<option value="' + anosUnicos[i] + '">' + anosUnicos[i] + '</option>';
     
+    // CORREÇÃO DEFINITIVA DO MODO APRESENTAÇÃO
     var html = '<!DOCTYPE html>\n<html lang="pt-BR">\n<head>\n<meta charset="UTF-8">\n<title>Dashboard - Apresentação</title>\n' +
 '<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"><\/script>\n' +
 '<style>\n' +
@@ -1689,8 +1692,8 @@ function gerarApresentacao() {
 '<div class="filtros"><div class="filtro-group"><label>📅 Mês/Ano:</label><select id="filtroPeriodo" onchange="aplicarFiltros()">' + optionsMeses + '</select></div><div class="filtro-group"><label>📆 Ano:</label><select id="filtroAno" onchange="aplicarFiltros()">' + optionsAnos + '</select></div><div class="filtro-group"><label>🏷️ Status:</label><select id="filtroStatus" onchange="aplicarFiltros()"><option value="todos">Todos</option><option value="entregue">Entregue</option><option value="aprovado">Aprovado</option><option value="analise">Em Análise</option><option value="pagamento">Em Pagamento</option><option value="pago">Pago</option><option value="nao_iniciado">Não Iniciado</option></select></div><button class="btn-clear" onclick="limparFiltros()">🗑️ Limpar Filtros</button></div>\n' +
 '<div class="progress-card"><div class="progress-title"><h2>📈 MEDIÇÃO ACUMULADA</h2><div><span class="total-executado" id="totalExecutadoValor">R$ 0,00</span><span> / R$ 89.863.121,73</span></div></div><div class="progress-bar-container"><div class="progress-bar-fill" id="progressBarFill" style="width:0%;">0%</div></div><div class="progress-stats"><div class="stat-item"><div class="stat-label">Percentual Executado</div><div class="stat-value" id="percExecGrande">0%</div></div><div class="stat-item"><div class="stat-label">Total de Despesas</div><div class="stat-value" id="totalDespGrande">R$ 0,00</div></div><div class="stat-item"><div class="stat-label">Saldo Restante</div><div class="stat-value" id="saldoRestante">R$ 0,00</div></div></div></div>\n' +
 '<div class="graficos-row"><div class="grafico-wrapper"><h3>💰 Valores Financeiros por Mês</h3><canvas id="graficoFinanceiro"></canvas><p style="text-align:center; font-size:11px; color:#666; margin-top:10px;">📊 Comparativo: Realizado vs Previsto vs Despesas vs Desconto</p></div><div class="grafico-wrapper"><h3>📈 Realizado vs Previsto</h3><canvas id="graficoAcumulado"></canvas><p style="text-align:center; font-size:11px; color:#666; margin-top:10px;" id="graficoLegenda">📊 Valores mensais (filtro específico) ou acumulados (visão geral)</p></div></div>\n' +
-'<div class="tabela-wrapper"><table id="tabela"><thead><tr><th>Med</th><th>Mês/Ano</th><th>Data</th><th>Previsto</th><th>Realizado</th><th>Reajuste</th><th>Total Acumulado</th><th>Despesas</th><th>Descontos</th><th>Diferença</th><th>Status</th><th>Obs</th></tr></thead><tbody id="tabelaBody"></tbody></table></div>\n' +
-'<div class="info-grid"><div class="info-box"><b>📋 LEGENDA</b><br><span class="badge badge-entregue">Entregue</span> Documentação<br><span class="badge badge-aprovado">Aprovado</span> Fiscalização<br><span class="badge badge-analise">Análise</span> Verificação<br><span class="badge badge-pagamento">Pagamento</span> Financeiro<br><span class="badge badge-pago">Pago</span> Creditado<br><span class="badge badge-nao-iniciado">Não Iniciado</span> Medição não realizada</div><div class="info-box"><b>ℹ️ INFORMAÇÕES</b><br>Período: 60 meses<br>💰 Valor Previsto por Mês: ' + valorPrevistoStr + '<br>📌 Barra: valor ACUMULADO apenas de medições com status PAGO<br>📊 Total Acumulado = SOMA(Previsto + Reajuste)<br>🎯 Desconto: ≥90=0% | 80-89=2,5% | 70-79=5% | 50-69=7,5% | &lt;50=10%<br>📺 Modo visualização</div></div>\n' +
+'<div class="tabela-wrapper"><table id="tabela"><thead><tr><th>Med</th><th>Mês/Ano</th><th>Data</th><th>Previsto</th><th>Realizado</th><th>Diferença</th><th>Reajuste</th><th>Total Acumulado</th><th>Despesas</th><th>Descontos</th><th>Status</th><th>Obs</th></tr></thead><tbody id="tabelaBody"></tbody></table></div>\n' +
+'<div class="info-grid"><div class="info-box"><b>📋 LEGENDA</b><br><span class="badge badge-entregue">Entregue</span> Documentação<br><span class="badge badge-aprovado">Aprovado</span> Fiscalização<br><span class="badge badge-analise">Análise</span> Verificação<br><span class="badge badge-pagamento">Pagamento</span> Financeiro<br><span class="badge badge-pago">Pago</span> Creditado<br><span class="badge badge-nao-iniciado">Não Iniciado</span> Medição não realizada</div><div class="info-box"><b>ℹ️ INFORMAÇÕES</b><br>Período: 60 meses<br>💰 Valor Previsto por Mês: ' + valorPrevistoStr + '<br>📌 Barra: valor ACUMULADO apenas de medições com status PAGO (somando PREVISTO + REAJUSTE)<br>📊 Total de Despesas: soma apenas de medições com status PAGO<br>🎯 Desconto: ≥90=0% | 80-89=2,5% | 70-79=5% | 50-69=7,5% | &lt;50=10%<br>📺 Modo visualização</div></div>\n' +
 '</div>\n<script>\n' +
 'var dadosOriginais = ' + JSON.stringify(dadosOrdenados) + ';\n' +
 'var totalContrato = ' + totalContrato + ';\n' +
@@ -1714,7 +1717,9 @@ function gerarApresentacao() {
 '    var totalDespesas = 0;\n' +
 '    for(var i=0;i<dadosFiltrados.length;i++){\n' +
 '        stats[dadosFiltrados[i].status]++;\n' +
-'        totalDespesas += dadosFiltrados[i].despesa||0;\n' +
+'        if(dadosFiltrados[i].status === "pago"){\n' +
+'            totalDespesas += dadosFiltrados[i].despesa||0;\n' +
+'        }\n' +
 '    }\n' +
 '    var filtroPeriodo = document.getElementById("filtroPeriodo") ? document.getElementById("filtroPeriodo").value : "todos";\n' +
 '    var filtroAno = document.getElementById("filtroAno") ? document.getElementById("filtroAno").value : "todos";\n' +
@@ -1791,23 +1796,22 @@ function gerarApresentacao() {
 '    filtrados=aplicarFator(filtrados,fator);\n' +
 '    var tbody=document.getElementById("tabelaBody");\n' +
 '    tbody.innerHTML="";\n' +
-'    if(filtrados.length===0){tbody.innerHTML="<tr><td colspan=12>Nenhum dado encontrado<\/td><\/tr>";atualizarTudo([],fator);return;}\n' +
+'    if(filtrados.length===0){tbody.innerHTML="</td><td colspan=12>Nenhum dado encontrado<\/td><\/tr>";atualizarTudo([],fator);return;}\n' +
 '    for(var i=0;i<filtrados.length;i++){var d=filtrados[i];var row=tbody.insertRow();\n' +
-'        row.insertCell(0).innerHTML=d.med;\n' +
-'        row.insertCell(1).innerHTML=d.mes;\n' +
-'        row.insertCell(2).innerHTML=d.data||"";\n' +
-'        row.insertCell(3).innerHTML=formatarJs(valorPrevistoMensal*fator);\n' +
-'        row.insertCell(4).innerHTML=formatarJs(d.realizado);\n' +
-'        row.insertCell(5).innerHTML=formatarJs(d.reaj);\n' +
-'        row.insertCell(6).innerHTML=formatarJs(d.acumulado);\n' +
-'        row.insertCell(7).innerHTML=formatarJs(d.despesa||0);\n' +
+'        row.insertCell(0).innerHTML = d.med;\n' +
+'        row.insertCell(1).innerHTML = d.mes;\n' +
+'        row.insertCell(2).innerHTML = d.data || "";\n' +
+'        row.insertCell(3).innerHTML = formatarJs(valorPrevistoMensal*fator);\n' +
+'        row.insertCell(4).innerHTML = formatarJs(d.realizado);\n' +
+'        row.insertCell(5).innerHTML = formatarDif(d.realizado-(valorPrevistoMensal*fator), valorPrevistoMensal*fator);\n' +
+'        row.insertCell(6).innerHTML = formatarJs(d.reaj);\n' +
+'        row.insertCell(7).innerHTML = formatarJs(d.acumulado);\n' +
+'        row.insertCell(8).innerHTML = formatarJs(d.despesa||0);\n' +
 '        var descPercent = getDescontoPorNDG(d.ndg || 100);\n' +
 '        var valorDesconto = d.realizado * (descPercent / 100);\n' +
-'        row.insertCell(8).innerHTML=formatarJs(valorDesconto)+" ("+descPercent+"%)";\n' +
-'        var dif=d.realizado-(valorPrevistoMensal*fator);\n' +
-'        row.insertCell(9).innerHTML=formatarDif(dif, valorPrevistoMensal*fator);\n' +
-'        row.insertCell(10).innerHTML="<span class=\\"badge "+statusCor[d.status]+"\\">"+statusTexto[d.status]+"</span>";\n' +
-'        row.insertCell(11).innerHTML=d.obs||"";\n' +
+'        row.insertCell(9).innerHTML = formatarJs(valorDesconto)+" ("+descPercent+"%)";\n' +
+'        row.insertCell(10).innerHTML = "<span class=\\"badge "+statusCor[d.status]+"\\">"+statusTexto[d.status]+"</span>";\n' +
+'        row.insertCell(11).innerHTML = d.obs||"";\n' +
 '    }\n' +
 '    atualizarTudo(filtrados, fator);\n' +
 '}\n' +
