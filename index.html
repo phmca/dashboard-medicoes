@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <title>Dashboard de Medições</title>
+    <title>Relatório de Medições</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -78,6 +78,7 @@
     .btn-save { background: #4496CB; color: white; }
     .btn-presentation { background: #2c5f7a; color: white; }
     .btn-clear { background: #94a3b8; color: white; }
+    .btn-pdf { background: #dc3545; color: white; }
     
     .filtros { 
         background: white; 
@@ -132,7 +133,6 @@
     .kpi-card small { font-size: 11px; opacity: 0.8; display: block; margin-top: 8px; }
     .kpi-card .card-icon { font-size: 32px; margin-bottom: 8px; opacity: 0.7; }
     
-    /* KPIs com cores complementares */
     .kpi-entregue { background: #2c5f7a; }
     .kpi-aprovado { background: #4496CB; }
     .kpi-analise { background: #e9a23b; color: #1a1a1a; }
@@ -421,33 +421,76 @@
         background: #4496CB;
         color: white;
     }
-    
-    @media (max-width: 1200px) {
-        .kpi-grid { grid-template-columns: repeat(3, 1fr); }
-        .empresas-grid { grid-template-columns: repeat(2, 1fr); }
-        .graficos-row { grid-template-columns: 1fr; }
-    }
-    @media (max-width: 800px) {
-        .kpi-grid { grid-template-columns: repeat(2, 1fr); }
-        .empresas-grid { grid-template-columns: 1fr; }
-        .info-grid { grid-template-columns: 1fr; }
-        body { padding: 12px; }
-        .container { padding: 16px; }
-        .header {
-            flex-direction: column;
-            text-align: center;
-            padding: 20px;
+#pdfContainer {
+            display: none;
+            background: white;
+            padding: 30px;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 9999;
+            overflow-y: auto;
+        }
+        #pdfContainer .pdf-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 15px 30px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #4496CB;
+            flex-wrap: wrap;
             gap: 15px;
         }
-        .header-logo-left img { height: 80px; }
-        .header-logo-right img { height: 50px; }
-        .header-content h1 { font-size: 22px; }
-        .header-content p { font-size: 16px; }
-    }
-    @media print { .btn-group, .filtros, .graficos-row { display: none; } }
+        #pdfContainer .pdf-header-left img { height: 80px; width: auto; }
+        #pdfContainer .pdf-header-center { text-align: center; flex: 1; }
+        #pdfContainer .pdf-header-center h1 { color: #4496CB; font-size: 20px; margin: 0; }
+        #pdfContainer .pdf-header-center p { color: #2c5f7a; font-size: 13px; margin: 3px 0; }
+        #pdfContainer .pdf-header-center .total { color: #4496CB; font-weight: bold; font-size: 15px; }
+        #pdfContainer .pdf-header-right img { height: 50px; width: auto; }
+        #pdfContainer .pdf-table-wrapper { overflow-x: auto; }
+        #pdfContainer table { width: 100%; border-collapse: collapse; font-size: 9px; border: 1px solid #ccc; }
+        #pdfContainer th { background: #4496CB; color: white; padding: 5px 4px; border: 1px solid #4496CB; font-size: 9px; text-align: center; }
+        #pdfContainer td { padding: 4px 3px; border: 1px solid #ddd; text-align: center; font-size: 9px; background: white; }
+        #pdfContainer .pdf-footer { margin-top: 15px; font-size: 9px; color: #666; text-align: center; border-top: 1px solid #ddd; padding-top: 10px; }
+        #pdfContainer .badge { font-size: 7px; padding: 2px 6px; }
+        #pdfContainer .diferenca-acima { color: #c0392b; font-weight: bold; }
+        #pdfContainer .diferenca-abaixo { color: #4496CB; font-weight: bold; }
+        
+        /* ===== PRINT ===== */
+        @media print {
+            body * { visibility: hidden; }
+            #pdfContainer, #pdfContainer * { visibility: visible; }
+            #pdfContainer { display: block !important; position: absolute; top: 0; left: 0; width: 100%; padding: 15px; background: white; }
+            .btn-group, .filtros, .graficos-row, .kpi-grid, .empresas-grid,
+            .progress-card, .info-grid, .total-selecionado, .header,
+            .save-status, .tabela-wrapper { display: none !important; }
+            * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+        }
+        
+        @media (max-width: 1200px) {
+            .kpi-grid { grid-template-columns: repeat(3, 1fr); }
+            .empresas-grid { grid-template-columns: repeat(2, 1fr); }
+            .graficos-row { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 800px) {
+            .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+            .empresas-grid { grid-template-columns: 1fr; }
+            .info-grid { grid-template-columns: 1fr; }
+            body { padding: 12px; }
+            .container { padding: 16px; }
+            .header { flex-direction: column; text-align: center; padding: 20px; gap: 15px; }
+            .header-logo-left img { height: 80px; }
+            .header-logo-right img { height: 50px; }
+            .header-content h1 { font-size: 22px; }
+            .header-content p { font-size: 16px; }
+        }
 </style>
 </head>
 <body>
+
+<!-- ===== CONTAINER PRINCIPAL ===== -->
 <div class="container" id="relatorioPDF">
     <div class="save-status" id="saveStatus">Salvando...</div>
     
@@ -456,7 +499,7 @@
             <img src="https://raw.githubusercontent.com/phmca/dashboard-medicoes/main/logo-assessor.png" alt="Logo Assessor Consórcio" onerror="this.style.display='none'">
         </div>
         <div class="header-content">
-            <h1>Dashboard de Medições</h1>
+            <h1>Relatório de Medições</h1>
             <p>Controle de Entregas, Aprovações e Pagamentos • 60 meses</p>
             <div class="total-contrato">Contrato Total: R$ 89.863.121,73</div>
         </div>
@@ -469,6 +512,7 @@
         <button class="btn btn-save" onclick="salvarTodos()">💾 Salvar Alterações</button>
         <button class="btn btn-presentation" onclick="gerarApresentacao()">📺 Modo Apresentação</button>
         <button class="btn btn-clear" onclick="limparFiltros()">🗑️ Limpar Filtros</button>
+        <button class="btn btn-pdf" onclick="gerarPDF()">📄 Gerar PDF</button>
     </div>
     
     <div class="filtros">
@@ -590,10 +634,6 @@
     
     <div class="graficos-row">
         <div class="grafico-wrapper">
-            <div class="chart-type-selector">
-                <button class="chart-type-btn active" data-chart="line" onclick="setChartType('line')">📈 Linha</button>
-                <button class="chart-type-btn" data-chart="bar" onclick="setChartType('bar')">📊 Barras</button>
-            </div>
             <h3>💰 Evolução Financeira com Área de Despesas</h3>
             <div class="grafico">
                 <canvas id="graficoFinanceiro"></canvas>
@@ -662,13 +702,60 @@
     </div>
 </div>
 
+<div id="pdfContainer">
+    <div class="pdf-header">
+        <div class="pdf-header-left">
+            <img src="https://raw.githubusercontent.com/phmca/dashboard-medicoes/main/logo-assessor.png" alt="Logo Assessor" onerror="this.style.display='none'">
+        </div>
+        <div class="pdf-header-center">
+            <h1>📄 Relatório de Medições</h1>
+            <p>Controle de Entregas, Aprovações e Pagamentos • 60 meses</p>
+            <div class="total">Contrato Total: R$ 89.863.121,73</div>
+        </div>
+        <div class="pdf-header-right">
+            <img src="https://raw.githubusercontent.com/phmca/dashboard-medicoes/main/monocromatica-dnit-padrao.png" alt="DNIT" onerror="this.style.display='none'">
+        </div>
+    </div>
+    
+    <div class="pdf-table-wrapper">
+        <table id="pdfTabela">
+            <thead>
+                <tr>
+                    <th>Med</th>
+                    <th>Mês/Ano</th>
+                    <th>Data</th>
+                    <th>Previsto</th>
+                    <th>Realizado</th>
+                    <th>Diferença</th>
+                    <th>Reajuste</th>
+                    <th>Total Acum.</th>
+                    <th>Despesas</th>
+                    <th>Descontos</th>
+                    <th>Status</th>
+                    <th>Obs</th>
+                </tr>
+            </thead>
+            <tbody id="pdfTabelaBody"></tbody>
+        </table>
+    </div>
+    
+    <div class="pdf-footer">
+        📋 LEGENDA: <span class="badge badge-entregue">Entregue</span> <span class="badge badge-aprovado">Aprovado</span> 
+        <span class="badge badge-analise">Análise</span> <span class="badge badge-pagamento">Pagamento</span> 
+        <span class="badge badge-pago">Pago</span> <span class="badge badge-nao-iniciado">Não Iniciado</span>
+        <br>📊 Desconto: sobre PREVISTO+REAJUSTE | ≥90=0% | 80-89=2,5% | 70-79=5% | 50-69=7,5% | &lt;50=10%
+        <br>📅 Gerado em: <span id="pdfDataGeracao"></span>
+    </div>
+</div>
+
+
 <script>
 var totalContrato = 89863121.73;
 var valorPrevistoMensal = 1497718.70;
 var dados = [];
 var chartFinanceiro = null;
 var chartAcumulado = null;
-var currentChartType = 'line';
+var currentChartType = 'bar';
 
 var empresasSelecionadas = {};
 
@@ -708,7 +795,6 @@ function somarRealizadoPagoAteAno(ano) {
 
 // ==================== FUNÇÃO PARA CÁLCULO DO DESCONTO (baseado em PREVISTO + REAJUSTE) ====================
 function getValorBaseParaDesconto(item) {
-    // valor base = previsto + reajuste
     return (item.previsto || 0) + (item.reaj || 0);
 }
 
@@ -930,6 +1016,13 @@ function formatarDiferenca(diferenca, valorPrevisto) {
     return '<span class="' + classe + '">' + sinal + ' ' + formatar(Math.abs(diferenca)) + ' (' + perc.toFixed(1) + '%)</span>';
 }
 
+function formatarDiferencaTexto(diferenca, valorPrevisto) {
+    if (diferenca === 0 || isNaN(diferenca) || valorPrevisto === 0) return 'R$ 0,00 (0%)';
+    var perc = (Math.abs(diferenca) / valorPrevisto) * 100;
+    var sinal = diferenca > 0 ? '+' : '';
+    return sinal + ' ' + formatar(Math.abs(diferenca)) + ' (' + perc.toFixed(1) + '%)';
+}
+
 function gerarDadosIniciais() {
     var meses = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
     var dadosTemp = [];
@@ -1106,7 +1199,6 @@ function atualizarCards(filtrados) {
         stats[filtrados[i].status]++;
         if (filtrados[i].status === 'pago') {
             totalDespesas += filtrados[i].despesa || 0;
-            // Desconto calculado sobre previsto + reajuste
             var valorBase = filtrados[i].previsto + (filtrados[i].reaj || 0);
             var descPercent = getDescontoPorNDG(filtrados[i].ndg || 100);
             var valorDesconto = valorBase * (descPercent / 100);
@@ -1121,7 +1213,6 @@ function atualizarCards(filtrados) {
     document.getElementById('totalPago').textContent = stats.pago;
     document.getElementById('totalNao').textContent = stats.nao_iniciado;
     
-    // Exibe total de despesas + descontos com desconto em parênteses
     var totalDespesasMaisDescontos = totalDespesas + totalDescontos;
     document.getElementById('totalDespGrande').innerHTML = formatar(totalDespesasMaisDescontos) + 
         ' <span style="font-size:12px; opacity:0.8;">(desc: ' + formatar(totalDescontos) + ')</span>';
@@ -1130,7 +1221,6 @@ function atualizarCards(filtrados) {
     var filtroPeriodo = document.getElementById('filtroPeriodo') ? document.getElementById('filtroPeriodo').value : 'todos';
     var filtroAno = document.getElementById('filtroAno') ? document.getElementById('filtroAno').value : 'todos';
     
-    // ========== NOVO CÁLCULO USANDO SOMA DO REALIZADO ONDE STATUS = PAGO ==========
     var totalAcumulado = 0;
     
     if (filtroMedicao !== 'todos') {
@@ -1149,7 +1239,6 @@ function atualizarCards(filtrados) {
     else {
         totalAcumulado = somarRealizadoPagoAteMedicao(60);
     }
-    // ==============================================================================
     
     var fator = calcularFatorEmpresas();
     totalAcumulado = totalAcumulado * fator;
@@ -1202,7 +1291,6 @@ function atualizarGraficoFinanceiro() {
     var realizados = dadosOrdenados.map(function(d) { return d.realizado; });
     var previstos = dadosOrdenados.map(function(d) { return d.previsto; });
     var despesas = dadosOrdenados.map(function(d) { return d.despesa || 0; });
-    // Desconto calculado sobre previsto + reajuste
     var descontos = dadosOrdenados.map(function(d) { 
         var valorBase = (d.previsto || 0) + (d.reaj || 0);
         var descPercent = getDescontoPorNDG(d.ndg || 0);
@@ -1513,7 +1601,6 @@ function atualizarDiferenca(med) {
         ndgInput.value = ndg;
         ndgInput.className = 'ndg-input ' + getClassePorNDG(ndg);
         
-        // Buscar o reajuste atual
         var reajInput = document.getElementById('reaj_' + med);
         var reaj = reajInput ? parseFloat(reajInput.value.replace(/\./g,'').replace(',','.')) || 0 : 0;
         var valorBase = valorPrevistoMensal + reaj;
@@ -1635,7 +1722,6 @@ function renderizarTabela(filtrados) {
         
         var cellDesconto = row.insertCell(10);
         var descontoSpan = document.createElement('span');
-        // Desconto calculado sobre previsto + reajuste
         var valorBaseDesc = (valorPrevistoProporcional) + (isNaoIniciado ? 0 : (d.reaj || 0) * fator);
         var descPercent = getDescontoPorNDG(isNaoIniciado ? 0 : (d.ndg || 100));
         var valorDesconto = valorBaseDesc * (descPercent / 100);
@@ -1750,6 +1836,94 @@ function initSelects() {
     }
 }
 
+// ==================== GERAR PDF (APENAS TABELA) ====================
+function gerarPDF() {
+    salvarTodos();
+
+    const med = document.getElementById('filtroMedicao').value;
+    const per = document.getElementById('filtroPeriodo').value;
+    const ano = document.getElementById('filtroAno').value;
+    const st = document.getElementById('filtroStatus').value;
+    const mostrar = document.getElementById('mostrarVazios').checked;
+    let filtrados = dados.slice();
+    if (!mostrar) filtrados = filtrados.filter(d => d.data && d.data !== '' && isDataValida(d.data));
+    if (med !== 'todos') filtrados = filtrados.filter(d => d.med === med);
+    if (per !== 'todos') filtrados = filtrados.filter(d => d.mes === per);
+    if (ano !== 'todos') filtrados = filtrados.filter(d => extrairAno(d.mes) === ano);
+    if (st !== 'todos') filtrados = filtrados.filter(d => d.status === st);
+
+    const fator = calcularFatorEmpresas();
+    if (fator > 0 && fator !== 1) filtrados = getFilteredDataByEmpresa(filtrados);
+
+    const ordenados = [...filtrados].sort((a,b) => parseInt(a.med)-parseInt(b.med));
+    const valorPrevistoProp = valorPrevistoMensal * fator;
+
+    const tbody = document.getElementById('pdfTabelaBody');
+    tbody.innerHTML = '';
+
+    if (ordenados.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="12" style="text-align:center; padding:20px;">Nenhum dado encontrado</td></tr>';
+    } else {
+        for (let d of ordenados) {
+            const row = tbody.insertRow();
+            const isNaoIniciado = !d.data || d.data === '' || !isDataValida(d.data);
+            const valReal = isNaoIniciado ? 0 : ((d.realizado && d.realizado !== 0) ? d.realizado : valorPrevistoProp);
+            const dif = valReal - (isNaoIniciado ? 0 : valorPrevistoProp);
+            const valReaj = isNaoIniciado ? 0 : (d.reaj || 0) * fator;
+            const valDesp = isNaoIniciado ? 0 : (d.despesa || 0) * fator;
+            const baseDesc = (isNaoIniciado ? 0 : valorPrevistoProp) + (isNaoIniciado ? 0 : (d.reaj || 0) * fator);
+            const descPct = getDescontoPorNDG(isNaoIniciado ? 0 : (d.ndg || 100));
+            const valDesc = baseDesc * (descPct / 100);
+
+            const statusMap = {
+                'entregue': 'Entregue',
+                'aprovado': 'Aprovado',
+                'analise': 'Em Análise',
+                'pagamento': 'Em Pagamento',
+                'pago': 'Pago',
+                'nao_iniciado': 'Não Iniciado'
+            };
+
+            row.insertCell(0).innerHTML = d.med;
+            row.insertCell(1).innerHTML = d.mes;
+            row.insertCell(2).innerHTML = d.data || '';
+            row.insertCell(3).innerHTML = formatar(valorPrevistoProp);
+            row.insertCell(4).innerHTML = formatar(valReal);
+            row.insertCell(5).innerHTML = formatarDiferencaTexto(dif, isNaoIniciado ? 1 : valorPrevistoProp);
+            row.insertCell(6).innerHTML = formatar(valReaj);
+            row.insertCell(7).innerHTML = formatar((d.acumulado || 0) * fator);
+            row.insertCell(8).innerHTML = formatar(valDesp);
+            row.insertCell(9).innerHTML = formatar(valDesc) + ' (' + descPct + '%)';
+            row.insertCell(10).innerHTML = statusMap[d.status] || d.status;
+            row.insertCell(11).innerHTML = d.obs || '';
+        }
+    }
+
+    // Data de geração
+    document.getElementById('pdfDataGeracao').innerHTML = new Date().toLocaleDateString('pt-BR', {
+        day: '2-digit', month: '2-digit', year: 'numeric',
+        hour: '2-digit', minute: '2-digit'
+    });
+
+    // Mostra APENAS o PDF
+    const pdfContainer = document.getElementById('pdfContainer');
+    const containerPrincipal = document.getElementById('relatorioPDF');
+    
+    containerPrincipal.style.display = 'none';
+    pdfContainer.style.display = 'block';
+
+    setTimeout(() => {
+        window.print();
+        setTimeout(() => {
+            pdfContainer.style.display = 'none';
+            containerPrincipal.style.display = 'block';
+        }, 500);
+    }, 300);
+
+    mostrarStatus('PDF gerado!', true);
+}
+
+// ==================== GERAR APRESENTAÇÃO ====================
 function gerarApresentacao() {
     salvarTodos();
     
@@ -1814,7 +1988,7 @@ function gerarApresentacao() {
 '.diferenca-acima{color:#c0392b;font-weight:bold}.diferenca-abaixo{color:#4496CB;font-weight:bold}.info-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:20px;margin-top:24px}.info-box{background:#2c5f7a;padding:16px;border-radius:16px;color:#fff;font-size:16px}.info-box b{color:#4496CB}\n' +
 '@media(max-width:1200px){.kpi-grid{grid-template-columns:repeat(3,1fr)}.empresas-grid{grid-template-columns:repeat(2,1fr)}.graficos-row{grid-template-columns:1fr}}@media(max-width:800px){.kpi-grid{grid-template-columns:repeat(2,1fr)}.empresas-grid{grid-template-columns:1fr}.header{flex-direction:column;text-align:center}}\n' +
 '</style>\n</head>\n<body>\n<div class="container">\n' +
-'<div class="header"><div class="header-logo-left"><img src="https://raw.githubusercontent.com/phmca/dashboard-medicoes/main/logo-assessor.png" onerror="this.style.display=\'none\'"></div><div class="header-content"><h1>Dashboard de Medições</h1><div class="total-contrato">Contrato Total: R$ 89.863.121,73</div></div><div class="header-logo-right"><img src="https://raw.githubusercontent.com/phmca/dashboard-medicoes/main/monocromatica-dnit-padrao.png" onerror="this.style.display=\'none\'"></div></div>\n' +
+'<div class="header"><div class="header-logo-left"><img src="https://raw.githubusercontent.com/phmca/dashboard-medicoes/main/logo-assessor.png" onerror="this.style.display=\'none\'"></div><div class="header-content"><h1>Relatório de Medições</h1><div class="total-contrato">Contrato Total: R$ 89.863.121,73</div></div><div class="header-logo-right"><img src="https://raw.githubusercontent.com/phmca/dashboard-medicoes/main/monocromatica-dnit-padrao.png" onerror="this.style.display=\'none\'"></div></div>\n' +
 '<div class="empresas-grid" id="empresasGrid"></div>\n' +
 '<div class="total-selecionado" id="totalSelecionado">💰 Total Selecionado: R$ 0,00 (0% do Contrato)</div>\n' +
 '<div class="kpi-grid" id="kpiGrid"></div>\n' +
@@ -1839,10 +2013,8 @@ function gerarApresentacao() {
 'function calcularFator(){var t=0;for(var e in empresasSelecionadas)if(empresasSelecionadas[e])t+=percentuais[e];return t===0?1:t;}\n' +
 'function aplicarFator(dados, fator){return dados.map(function(item){var novo=JSON.parse(JSON.stringify(item));novo.reaj*=fator;novo.realizado*=fator;novo.despesa*=fator;novo.acumulado*=fator;return novo;});}\n' +
 'function getMedicaoNumByMes(mesAno){for(var i=0;i<dadosOriginais.length;i++){if(dadosOriginais[i].mes===mesAno){return parseInt(dadosOriginais[i].med);}}return null;}\n' +
-'// ========== FUNÇÕES PARA BARRA (SOMA DO REALIZADO ONDE STATUS = PAGO) ==========\n' +
 'function somarRealizadoPagoAteMedicao(medNum){var total=0;for(var i=0;i<dadosOriginais.length;i++){var medAtual=parseInt(dadosOriginais[i].med);var temDataValida=dadosOriginais[i].data&&dadosOriginais[i].data!==""&&isDataValida(dadosOriginais[i].data);var isPago=dadosOriginais[i].status==="pago";if(medAtual<=medNum&&temDataValida&&isPago){total+=dadosOriginais[i].realizado||0;}}return total;}\n' +
 'function somarRealizadoPagoAteAno(ano){var ultimaMedNoAno=0;for(var i=0;i<dadosOriginais.length;i++){var anoMed=parseInt(dadosOriginais[i].mes.split("/")[1]);var medNum=parseInt(dadosOriginais[i].med);if(anoMed==ano&&medNum>ultimaMedNoAno){ultimaMedNoAno=medNum;}}return somarRealizadoPagoAteMedicao(ultimaMedNoAno);}\n' +
-'// ==============================================================================\n' +
 'function atualizarTudo(dadosFiltrados, fatorSelecionado) {\n' +
 '    var stats = {entregue:0, aprovado:0, analise:0, pagamento:0, pago:0, nao_iniciado:0};\n' +
 '    var totalDespesas = 0;\n' +
@@ -1859,7 +2031,6 @@ function gerarApresentacao() {
 '    }\n' +
 '    var filtroPeriodo = document.getElementById("filtroPeriodo") ? document.getElementById("filtroPeriodo").value : "todos";\n' +
 '    var filtroAno = document.getElementById("filtroAno") ? document.getElementById("filtroAno").value : "todos";\n' +
-'    // ========== NOVO CÁLCULO USANDO SOMA DO REALIZADO ONDE STATUS = PAGO ==========\n' +
 '    var totalAcumulado = 0;\n' +
 '    if(filtroPeriodo !== "todos"){\n' +
 '        var medNum = getMedicaoNumByMes(filtroPeriodo);\n' +
@@ -1869,7 +2040,6 @@ function gerarApresentacao() {
 '    } else {\n' +
 '        totalAcumulado = somarRealizadoPagoAteMedicao(60) * fatorSelecionado;\n' +
 '    }\n' +
-'    // ==============================================================================\n' +
 '    document.getElementById("totalSelecionado").innerHTML="💰 Total Selecionado: "+formatarJs(totalAcumulado)+" ("+(fatorSelecionado*100).toFixed(1)+"% do Contrato)";\n' +
 '    document.getElementById("totalExecutadoValor").innerHTML=formatarJs(totalAcumulado);\n' +
 '    var perc = totalAcumulado>0?(totalAcumulado/totalContrato*100):0;\n' +
@@ -1877,7 +2047,6 @@ function gerarApresentacao() {
 '    document.getElementById("progressBarFill").style.width=perc+"%";\n' +
 '    document.getElementById("progressBarFill").innerHTML=perc.toFixed(1)+"%";\n' +
 '    document.getElementById("saldoRestante").innerHTML=formatarJs(totalContrato-totalAcumulado);\n' +
-'    // Exibe total de despesas + descontos com desconto em parênteses\n' +
 '    var totalDespesasMaisDescontos = totalDespesas + totalDescontos;\n' +
 '    document.getElementById("totalDespGrande").innerHTML = formatarJs(totalDespesasMaisDescontos) + \' <span style="font-size:12px; opacity:0.8;">(desc: \' + formatarJs(totalDescontos) + \')</span>\';\n' +
 '    for(var e in percentuais){var el=document.getElementById("valor"+e);if(el)el.innerHTML=empresasSelecionadas[e]?formatarJs(somarRealizadoPagoAteMedicao(60)*percentuais[e]):"🔒 "+formatarJs(somarRealizadoPagoAteMedicao(60)*percentuais[e]);}\n' +
