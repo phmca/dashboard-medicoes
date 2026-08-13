@@ -80,7 +80,6 @@
     .btn-clear { background: #94a3b8; color: white; }
     .btn-pdf { background: #dc3545; color: white; }
     
-    /* ===== NOVOS FILTROS COM DROPDOWN CHECKBOX ===== */
     .filtros { 
         background: white; 
         padding: 12px 16px; 
@@ -209,28 +208,6 @@
         padding-bottom: 6px;
         font-weight: 600;
         color: #4496CB;
-    }
-    
-    .toggle-label { 
-        display: inline-flex; 
-        align-items: center; 
-        gap: 6px; 
-        margin-left: auto;
-        font-size: 11px;
-        font-weight: 500;
-        cursor: pointer;
-        color: #4496CB;
-        white-space: nowrap;
-        padding: 4px 10px;
-        border-radius: 8px;
-        background: #f8fafc;
-        border: 1px solid #e2e8f0;
-    }
-    .toggle-label input {
-        width: 14px;
-        height: 14px;
-        cursor: pointer;
-        accent-color: #4496CB;
     }
     
     .kpi-grid { 
@@ -542,6 +519,43 @@
         color: white;
     }
     
+    /* Toggle centralizado dentro da tabela */
+    .toggle-tabela {
+        display: flex;
+        justify-content: center;
+        padding: 8px 16px;
+        background: white;
+        border-radius: 12px 12px 0 0;
+        border-bottom: 1px solid #e2e8f0;
+    }
+    .toggle-tabela .toggle-label {
+        background: #f1f5f9;
+        border-color: #cbd5e1;
+        margin: 0;
+        font-size: 12px;
+        padding: 6px 16px;
+    }
+    .toggle-label { 
+        display: inline-flex; 
+        align-items: center; 
+        gap: 6px; 
+        font-size: 12px;
+        font-weight: 500;
+        cursor: pointer;
+        color: #4496CB;
+        white-space: nowrap;
+        padding: 4px 16px;
+        border-radius: 8px;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+    }
+    .toggle-label input {
+        width: 14px;
+        height: 14px;
+        cursor: pointer;
+        accent-color: #4496CB;
+    }
+    
     #pdfContainer {
         display: none;
         background: white;
@@ -615,6 +629,7 @@
         .dropdown-btn { min-width: 100%; }
         .dropdown-menu { min-width: 100%; left: 0; right: 0; }
         .toggle-label { margin-left: 0; }
+        .toggle-tabela .toggle-label { width: 100%; justify-content: center; }
     }
     </style>
 </head>
@@ -711,30 +726,28 @@
                 <div id="optionsStatus"></div>
             </div>
         </div>
-
-        <label class="toggle-label">📋 Exibir não iniciados <input type="checkbox" id="mostrarVazios" onchange="aplicarFiltros()"></label>
     </div>
     
     <div class="empresas-grid">
         <button class="empresa-btn empresa-lbr" data-empresa="LBR" data-percentual="35" onclick="toggleEmpresa(this)">
             <h4>🏢 LBR</h4>
             <div class="valor" id="valorLBR">R$ 0,00</div>
-            <span class="percentual">35% do Contrato</span>
+            <span class="percentual" id="pctLBR">35% do Contrato</span>
         </button>
         <button class="empresa-btn empresa-progetto" data-empresa="Progetto" data-percentual="35" onclick="toggleEmpresa(this)">
             <h4>📐 Progetto</h4>
             <div class="valor" id="valorProgetto">R$ 0,00</div>
-            <span class="percentual">35% do Contrato</span>
+            <span class="percentual" id="pctProgetto">35% do Contrato</span>
         </button>
         <button class="empresa-btn empresa-ehp" data-empresa="EHP" data-percentual="15" onclick="toggleEmpresa(this)">
             <h4>⚡ EHP</h4>
             <div class="valor" id="valorEHP">R$ 0,00</div>
-            <span class="percentual">15% do Contrato</span>
+            <span class="percentual" id="pctEHP">15% do Contrato</span>
         </button>
         <button class="empresa-btn empresa-prisma" data-empresa="Prisma" data-percentual="15" onclick="toggleEmpresa(this)">
             <h4>🔮 Prisma</h4>
             <div class="valor" id="valorPrisma">R$ 0,00</div>
-            <span class="percentual">15% do Contrato</span>
+            <span class="percentual" id="pctPrisma">15% do Contrato</span>
         </button>
     </div>
     
@@ -837,6 +850,11 @@
         </div>
     </div>
     
+    <!-- Toggle centralizado dentro da tabela -->
+    <div class="toggle-tabela">
+        <label class="toggle-label">📋 Exibir não iniciados <input type="checkbox" id="mostrarVazios" onchange="aplicarFiltros()"></label>
+    </div>
+
     <div class="tabela-wrapper">
         <table id="tabela">
             <thead>
@@ -952,6 +970,36 @@ var percentuaisEmpresas = {
     EHP: 0.15,
     Prisma: 0.15
 };
+
+function calcularPercentualRealPorEmpresa(empresa) {
+    var fator = percentuaisEmpresas[empresa] || 0;
+    
+    var medSelecionados = obterValoresDropdown('dropdownMedicao');
+    var perSelecionados = obterValoresDropdown('dropdownPeriodo');
+    var anoSelecionados = obterValoresDropdown('dropdownAno');
+    var stSelecionados = obterValoresDropdown('dropdownStatus');
+    var mostrar = document.getElementById('mostrarVazios') ? document.getElementById('mostrarVazios').checked : false;
+    
+    var filtrados = dados.slice();
+    if (!mostrar) filtrados = filtrados.filter(function(d) { return d.data && d.data !== '' && isDataValida(d.data); });
+    if (medSelecionados.length > 0) filtrados = filtrados.filter(function(d) { return medSelecionados.indexOf(d.med) !== -1; });
+    if (perSelecionados.length > 0) filtrados = filtrados.filter(function(d) { return perSelecionados.indexOf(d.mes) !== -1; });
+    if (anoSelecionados.length > 0) filtrados = filtrados.filter(function(d) { return anoSelecionados.indexOf(extrairAno(d.mes)) !== -1; });
+    if (stSelecionados.length > 0) {
+        var stNorm = stSelecionados.map(function(s) { return s === 'não_iniciado' ? 'nao_iniciado' : s; });
+        filtrados = filtrados.filter(function(d) { return stNorm.indexOf(d.status) !== -1; });
+    }
+    
+    var totalRealizado = 0;
+    for (var i = 0; i < filtrados.length; i++) {
+        if (filtrados[i].status === 'pago' && filtrados[i].data && filtrados[i].data !== '' && isDataValida(filtrados[i].data)) {
+            totalRealizado += filtrados[i].realizado || 0;
+        }
+    }
+    
+    var valorEmpresa = totalRealizado * fator;
+    return valorEmpresa;
+}
 
 function somarRealizadoPagoAteMedicao(medNum) {
     var total = 0;
@@ -1124,11 +1172,12 @@ function toggleEmpresa(botao) {
 }
 
 function atualizarCardsEmpresas() {
-    var totalRealizadoAcumulado = somarRealizadoPagoAteMedicao(60);
+    var totalRealizadoAcumulado = calcularTotalComFiltros();
     
     for (var empresa in percentuaisEmpresas) {
         var valor = totalRealizadoAcumulado * percentuaisEmpresas[empresa];
         var el = document.getElementById('valor' + empresa);
+        var pctEl = document.getElementById('pct' + empresa);
         if (el) {
             if (empresasSelecionadas[empresa]) {
                 el.innerHTML = formatar(valor);
@@ -1136,11 +1185,42 @@ function atualizarCardsEmpresas() {
                 el.innerHTML = '🔒 ' + formatar(valor);
             }
         }
+        if (pctEl) {
+            var totalContratoEmpresa = totalContrato * percentuaisEmpresas[empresa];
+            var pctReal = totalContratoEmpresa > 0 ? (valor / totalContratoEmpresa * 100) : 0;
+            pctEl.innerHTML = pctReal.toFixed(1) + '% do Contrato (filtrado)';
+        }
     }
 }
 
+function calcularTotalComFiltros() {
+    var medSelecionados = obterValoresDropdown('dropdownMedicao');
+    var perSelecionados = obterValoresDropdown('dropdownPeriodo');
+    var anoSelecionados = obterValoresDropdown('dropdownAno');
+    var stSelecionados = obterValoresDropdown('dropdownStatus');
+    var mostrar = document.getElementById('mostrarVazios') ? document.getElementById('mostrarVazios').checked : false;
+    
+    var filtrados = dados.slice();
+    if (!mostrar) filtrados = filtrados.filter(function(d) { return d.data && d.data !== '' && isDataValida(d.data); });
+    if (medSelecionados.length > 0) filtrados = filtrados.filter(function(d) { return medSelecionados.indexOf(d.med) !== -1; });
+    if (perSelecionados.length > 0) filtrados = filtrados.filter(function(d) { return perSelecionados.indexOf(d.mes) !== -1; });
+    if (anoSelecionados.length > 0) filtrados = filtrados.filter(function(d) { return anoSelecionados.indexOf(extrairAno(d.mes)) !== -1; });
+    if (stSelecionados.length > 0) {
+        var stNorm = stSelecionados.map(function(s) { return s === 'não_iniciado' ? 'nao_iniciado' : s; });
+        filtrados = filtrados.filter(function(d) { return stNorm.indexOf(d.status) !== -1; });
+    }
+    
+    var total = 0;
+    for (var i = 0; i < filtrados.length; i++) {
+        if (filtrados[i].status === 'pago' && filtrados[i].data && filtrados[i].data !== '' && isDataValida(filtrados[i].data)) {
+            total += filtrados[i].realizado || 0;
+        }
+    }
+    return total;
+}
+
 function atualizarTotalSelecionado() {
-    var totalRealizadoAcumulado = somarRealizadoPagoAteMedicao(60);
+    var totalRealizadoAcumulado = calcularTotalComFiltros();
     
     var totalPercentual = 0;
     for (var emp in empresasSelecionadas) {
@@ -1212,7 +1292,6 @@ function gerarDadosIniciais() {
     var ano = 2025;
     var idx = 8;
     
-    // Dados de exemplo para as primeiras 20 medições
     var valoresBase = {
         1: { reaj: 0, status: "pago", data: "30/09/2025", realizado: 1888413.42, ndg: 85, despesa: 50000, obs: "Primeira medição" },
         2: { reaj: 0, status: "pago", data: "31/10/2025", realizado: 1713422.19, ndg: 92, despesa: 45000, obs: "" },
@@ -1249,10 +1328,8 @@ function gerarDadosIniciais() {
             despesa = valoresBase[c].despesa;
             obs = valoresBase[c].obs || "";
         } else {
-            // Para as medições restantes, criar alguns dados aleatórios para teste
             var random = Math.random();
             if (random < 0.5) {
-                // 50% de chance de ter dados
                 status = ["pago", "aprovado", "analise", "entregue", "pagamento"][Math.floor(Math.random() * 5)];
                 var mesAtual = c - 1;
                 var dia = String(Math.floor(Math.random() * 28) + 1).padStart(2, '0');
@@ -1400,7 +1477,6 @@ function atualizarCards(filtrados) {
     var totalDescontos = 0;
     var totalReajustes = 0;
     
-    // Conta os status dos filtrados
     for (var i = 0; i < filtrados.length; i++) {
         stats[filtrados[i].status]++;
         if (filtrados[i].status === 'pago') {
@@ -1415,15 +1491,12 @@ function atualizarCards(filtrados) {
     
     var totalDespesasMaisDescontos = totalDespesasOnly + totalDescontos;
     
-    // Atualiza os cards individuais de estatísticas
     document.getElementById('totalDespesas').innerHTML = formatar(totalDespesasOnly);
     document.getElementById('totalDescontos').innerHTML = formatar(totalDescontos);
     document.getElementById('totalReajuste').innerHTML = formatar(totalReajustes);
     document.getElementById('totalDespGrande').innerHTML = formatar(totalDespesasMaisDescontos) + 
         ' <span style="font-size:10px; opacity:0.8;">(desc: ' + formatar(totalDescontos) + ')</span>';
     
-    // ===== CORREÇÃO DOS KPIs =====
-    // Atualiza os totais (números)
     document.getElementById('totalEntregue').textContent = stats.entregue;
     document.getElementById('totalAprovado').textContent = stats.aprovado;
     document.getElementById('totalAnalise').textContent = stats.analise;
@@ -1431,7 +1504,6 @@ function atualizarCards(filtrados) {
     document.getElementById('totalPago').textContent = stats.pago;
     document.getElementById('totalNao').textContent = stats.nao_iniciado;
     
-    // Calcula e atualiza as porcentagens
     var total = filtrados.length;
     var pct = function(val, tot) { 
         return tot > 0 ? ((val/tot)*100).toFixed(1) + '%' : '0%'; 
@@ -1444,7 +1516,6 @@ function atualizarCards(filtrados) {
     document.getElementById('pPago').textContent = pct(stats.pago, total);
     document.getElementById('pNao').textContent = pct(stats.nao_iniciado, total);
     
-    // ===== BARRA DE PROGRESSO =====
     var filtroMedicao = document.getElementById('filtroMedicao') ? document.getElementById('filtroMedicao').value : 'todos';
     var filtroPeriodo = document.getElementById('filtroPeriodo') ? document.getElementById('filtroPeriodo').value : 'todos';
     var filtroAno = document.getElementById('filtroAno') ? document.getElementById('filtroAno').value : 'todos';
@@ -1465,7 +1536,7 @@ function atualizarCards(filtrados) {
         totalAcumulado = somarRealizadoPagoAteAno(parseInt(filtroAno));
     }
     else {
-        totalAcumulado = somarRealizadoPagoAteMedicao(60);
+        totalAcumulado = calcularTotalComFiltros();
     }
     
     var fator = calcularFatorEmpresas();
@@ -1480,9 +1551,11 @@ function atualizarCards(filtrados) {
     bar.innerHTML = Math.min(perc, 100).toFixed(1) + '%';
     document.getElementById('saldoRestante').innerHTML = formatar(totalContrato - totalAcumulado);
     
-    // Atualiza gráficos
     atualizarGraficoFinanceiro();
     atualizarGraficoAcumulado(filtrados);
+    
+    atualizarCardsEmpresas();
+    atualizarTotalSelecionado();
 }
 
 function atualizarGraficoFinanceiro() {
@@ -1976,7 +2049,6 @@ function renderizarTabela(filtrados) {
     atualizarCards(filtrados);
 }
 
-// ==================== FUNÇÕES PARA DROPDOWN COM CHECKBOX ====================
 function toggleDropdown(id) {
     var menu = document.getElementById(id);
     var arrow = document.getElementById('arrow' + id.charAt(0).toUpperCase() + id.slice(1));
@@ -2184,6 +2256,9 @@ function aplicarFiltros() {
     
     atualizarBadges();
     renderizarTabela(filtrados);
+    
+    atualizarCardsEmpresas();
+    atualizarTotalSelecionado();
 }
 
 function limparFiltros() {
@@ -2210,7 +2285,6 @@ function filtrarStatus(st) {
     aplicarFiltros();
 }
 
-// ==================== GERAR PDF ====================
 function gerarPDF() {
     salvarTodos();
 
@@ -2309,7 +2383,6 @@ function gerarPDF() {
     mostrarStatus('PDF gerado!', true);
 }
 
-// ==================== GERAR APRESENTAÇÃO ====================
 function gerarApresentacao() {
     salvarTodos();
     
@@ -2401,6 +2474,18 @@ function gerarApresentacao() {
 'function getMedicaoNumByMes(mesAno){for(var i=0;i<dadosOriginais.length;i++){if(dadosOriginais[i].mes===mesAno){return parseInt(dadosOriginais[i].med);}}return null;}\n' +
 'function somarRealizadoPagoAteMedicao(medNum){var total=0;for(var i=0;i<dadosOriginais.length;i++){var medAtual=parseInt(dadosOriginais[i].med);var temDataValida=dadosOriginais[i].data&&dadosOriginais[i].data!==""&&isDataValida(dadosOriginais[i].data);var isPago=dadosOriginais[i].status==="pago";if(medAtual<=medNum&&temDataValida&&isPago){total+=dadosOriginais[i].realizado||0;}}return total;}\n' +
 'function somarRealizadoPagoAteAno(ano){var ultimaMedNoAno=0;for(var i=0;i<dadosOriginais.length;i++){var anoMed=parseInt(dadosOriginais[i].mes.split("/")[1]);var medNum=parseInt(dadosOriginais[i].med);if(anoMed==ano&&medNum>ultimaMedNoAno){ultimaMedNoAno=medNum;}}return somarRealizadoPagoAteMedicao(ultimaMedNoAno);}\n' +
+'function calcularTotalComFiltros(filtroPeriodo, filtroAno) {\n' +
+'    var total = 0;\n' +
+'    var dadosFiltrados = dadosOriginais.slice();\n' +
+'    if(filtroPeriodo !== "todos") dadosFiltrados = dadosFiltrados.filter(function(d){ return d.mes === filtroPeriodo; });\n' +
+'    if(filtroAno !== "todos") dadosFiltrados = dadosFiltrados.filter(function(d){ return extrairAno(d.mes) === filtroAno; });\n' +
+'    for(var i=0;i<dadosFiltrados.length;i++){\n' +
+'        if(dadosFiltrados[i].status === "pago" && dadosFiltrados[i].data && dadosFiltrados[i].data !== "" && isDataValida(dadosFiltrados[i].data)){\n' +
+'            total += dadosFiltrados[i].realizado || 0;\n' +
+'        }\n' +
+'    }\n' +
+'    return total;\n' +
+'}\n' +
 'function atualizarTudo(dadosFiltrados, fatorSelecionado) {\n' +
 '    var stats = {entregue:0, aprovado:0, analise:0, pagamento:0, pago:0, nao_iniciado:0};\n' +
 '    var totalDespesas = 0;\n' +
@@ -2417,8 +2502,18 @@ function gerarApresentacao() {
 '    }\n' +
 '    var filtroPeriodo = document.getElementById("filtroPeriodo") ? document.getElementById("filtroPeriodo").value : "todos";\n' +
 '    var filtroAno = document.getElementById("filtroAno") ? document.getElementById("filtroAno").value : "todos";\n' +
+'    var filtroStatus = document.getElementById("filtroStatus") ? document.getElementById("filtroStatus").value : "todos";\n' +
 '    var totalAcumulado = 0;\n' +
-'    if(filtroPeriodo !== "todos"){\n' +
+'    if(filtroStatus !== "todos"){\n' +
+'        var dadosFiltradosStatus = dadosOriginais.filter(function(d){ return d.status === filtroStatus; });\n' +
+'        if(filtroPeriodo !== "todos") dadosFiltradosStatus = dadosFiltradosStatus.filter(function(d){ return d.mes === filtroPeriodo; });\n' +
+'        if(filtroAno !== "todos") dadosFiltradosStatus = dadosFiltradosStatus.filter(function(d){ return extrairAno(d.mes) === filtroAno; });\n' +
+'        for(var i=0;i<dadosFiltradosStatus.length;i++){\n' +
+'            if(dadosFiltradosStatus[i].status === "pago" && dadosFiltradosStatus[i].data && dadosFiltradosStatus[i].data !== "" && isDataValida(dadosFiltradosStatus[i].data)){\n' +
+'                totalAcumulado += dadosFiltradosStatus[i].realizado || 0;\n' +
+'            }\n' +
+'        }\n' +
+'    } else if(filtroPeriodo !== "todos"){\n' +
 '        var medNum = getMedicaoNumByMes(filtroPeriodo);\n' +
 '        if(medNum) totalAcumulado = somarRealizadoPagoAteMedicao(medNum) * fatorSelecionado;\n' +
 '    } else if(filtroAno !== "todos"){\n' +
@@ -2435,7 +2530,8 @@ function gerarApresentacao() {
 '    document.getElementById("saldoRestante").innerHTML=formatarJs(totalContrato-totalAcumulado);\n' +
 '    var totalDespesasMaisDescontos = totalDespesas + totalDescontos;\n' +
 '    document.getElementById("totalDespGrande").innerHTML = formatarJs(totalDespesasMaisDescontos) + \' <span style="font-size:12px; opacity:0.8;">(desc: \' + formatarJs(totalDescontos) + \')</span>\';\n' +
-'    for(var e in percentuais){var el=document.getElementById("valor"+e);if(el)el.innerHTML=empresasSelecionadas[e]?formatarJs(somarRealizadoPagoAteMedicao(60)*percentuais[e]):"🔒 "+formatarJs(somarRealizadoPagoAteMedicao(60)*percentuais[e]);}\n' +
+'    var totalRealizadoComFiltros = calcularTotalComFiltros(filtroPeriodo, filtroAno);\n' +
+'    for(var e in percentuais){var el=document.getElementById("valor"+e);if(el){var valorEmpresa = totalRealizadoComFiltros * percentuais[e];el.innerHTML=empresasSelecionadas[e]?formatarJs(valorEmpresa):"🔒 "+formatarJs(valorEmpresa);}}\n' +
 '    var total=dadosFiltrados.length;\n' +
 '    var pct=function(v,t){return t?((v/t)*100).toFixed(1)+"%":"0%";};\n' +
 '    document.getElementById("totalEntregue").textContent=stats.entregue;\n' +
@@ -2532,7 +2628,7 @@ function gerarApresentacao() {
 'function limparFiltros(){document.getElementById("filtroPeriodo").value="todos";document.getElementById("filtroAno").value="todos";document.getElementById("filtroStatus").value="todos";aplicarFiltros();}\n' +
 'function filtrarStatus(s){document.getElementById("filtroStatus").value=s;aplicarFiltros();}\n' +
 'function toggleEmpresa(emp,el){if(empresasSelecionadas[emp])delete empresasSelecionadas[emp];else empresasSelecionadas[emp]=true;el.classList.toggle("selecionado");aplicarFiltros();}\n' +
-'function renderizarEmpresas(){var empresas=[{nome:"LBR",p:35,cor:"empresa-lbr"},{nome:"Progetto",p:35,cor:"empresa-progetto"},{nome:"EHP",p:15,cor:"empresa-ehp"},{nome:"Prisma",p:15,cor:"empresa-prisma"}];var c=document.getElementById("empresasGrid");c.innerHTML="";for(var i=0;i<empresas.length;i++){var e=empresas[i];var d=document.createElement("div");d.className="empresa-card "+e.cor+(empresasSelecionadas[e.nome]?" selecionado":"");d.onclick=(function(n){return function(){toggleEmpresa(n,this);};})(e.nome);d.innerHTML="<h4>🏢 "+e.nome+"</h4><div class=\\"valor\\" id=\\"valor"+e.nome+"\\">🔒 R$ 0,00</div><span class=\\"percentual\\">"+e.p+"% do Contrato</span>";c.appendChild(d);}}\n' +
+'function renderizarEmpresas(){var empresas=[{nome:"LBR",p:35,cor:"empresa-lbr"},{nome:"Progetto",p:35,cor:"empresa-progetto"},{nome:"EHP",p:15,cor:"empresa-ehp"},{nome:"Prisma",p:15,cor:"empresa-prisma"}];var c=document.getElementById("empresasGrid");c.innerHTML="";for(var i=0;i<empresas.length;i++){var e=empresas[i];var d=document.createElement("div");d.className="empresa-card "+e.cor+(empresasSelecionadas[e.nome]?" selecionado":"");d.onclick=(function(n){return function(){toggleEmpresa(n,this);};})(e.nome);d.innerHTML="<h4>🏢 "+e.nome+"</h4><div class=\\"valor\\" id=\\"valor"+e.nome+"\\">🔒 R$ 0,00</div><span class=\\"percentual\\" id=\\"pct"+e.nome+"\\">"+e.p+"% do Contrato</span>";c.appendChild(d);}}\n' +
 'function initKPIs(){var total=dadosOriginais.length;var statsIniciais={entregue:0,aprovado:0,analise:0,pagamento:0,pago:0,nao_iniciado:0};for(var i=0;i<dadosOriginais.length;i++)statsIniciais[dadosOriginais[i].status]++;var html="<div class=\\"kpi-card kpi-entregue\\" onclick=\\"filtrarStatus(\'entregue\')\\" style=\\"cursor:pointer\\"><div class=\\"card-icon\\">📦</div><h3 id=\\"totalEntregue\\">"+statsIniciais.entregue+"</h3><p>Entregues</p><small id=\\"pEntregue\\">"+((statsIniciais.entregue/total)*100).toFixed(1)+"%</small></div>"+"<div class=\\"kpi-card kpi-aprovado\\" onclick=\\"filtrarStatus(\'aprovado\')\\" style=\\"cursor:pointer\\"><div class=\\"card-icon\\">✅</div><h3 id=\\"totalAprovado\\">"+statsIniciais.aprovado+"</h3><p>Aprovados</p><small id=\\"pAprovado\\">"+((statsIniciais.aprovado/total)*100).toFixed(1)+"%</small></div>"+"<div class=\\"kpi-card kpi-analise\\" onclick=\\"filtrarStatus(\'analise\')\\" style=\\"cursor:pointer\\"><div class=\\"card-icon\\">⏳</div><h3 id=\\"totalAnalise\\">"+statsIniciais.analise+"</h3><p>Em Análise</p><small id=\\"pAnalise\\">"+((statsIniciais.analise/total)*100).toFixed(1)+"%</small></div>"+"<div class=\\"kpi-card kpi-pagamento\\" onclick=\\"filtrarStatus(\'pagamento\')\\" style=\\"cursor:pointer\\"><div class=\\"card-icon\\">💰</div><h3 id=\\"totalPagamento\\">"+statsIniciais.pagamento+"</h3><p>Em Pagamento</p><small id=\\"pPagamento\\">"+((statsIniciais.pagamento/total)*100).toFixed(1)+"%</small></div>"+"<div class=\\"kpi-card kpi-pago\\" onclick=\\"filtrarStatus(\'pago\')\\" style=\\"cursor:pointer\\"><div class=\\"card-icon\\">💵</div><h3 id=\\"totalPago\\">"+statsIniciais.pago+"</h3><p>Pagos</p><small id=\\"pPago\\">"+((statsIniciais.pago/total)*100).toFixed(1)+"%</small></div>"+"<div class=\\"kpi-card kpi-nao-iniciado\\" onclick=\\"filtrarStatus(\'nao_iniciado\')\\" style=\\"cursor:pointer\\"><div class=\\"card-icon\\">🚫</div><h3 id=\\"totalNao\\">"+statsIniciais.nao_iniciado+"</h3><p>Não Iniciados</p><small id=\\"pNao\\">"+((statsIniciais.nao_iniciado/total)*100).toFixed(1)+"%</small></div>";document.getElementById("kpiGrid").innerHTML=html;}\n' +
 'initKPIs();renderizarEmpresas();aplicarFiltros();\n' +
 '<\/script>\n</body>\n</html>';
