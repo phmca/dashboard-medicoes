@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <title>Relatório de Medições</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
     <style>
     /* ===== ESTILOS ORIGINAIS (mantidos) ===== */
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -1302,24 +1305,45 @@
     </div>
 </div>
 <script>
+// ============================================================
+// 🔥 CONFIGURAÇÃO DO FIREBASE
+// ============================================================
+// ⚠️ SUBSTITUA ESTES VALORES PELOS SEUS!
+// ============================================================
+const firebaseConfig = {
+  apiKey: "AIzaSyCVoan1YN_9mcSsJiR6HvbVnSA66GgKriY",
+  authDomain: "dashboard-medicoes.firebaseapp.com",
+  projectId: "dashboard-medicoes",
+  storageBucket: "dashboard-medicoes.firebasestorage.app",
+  messagingSenderId: "144117389070",
+  appId: "1:144117389070:web:6292808c40858653bc295f"
+};
+
+// Inicializa o Firebase
+firebase.initializeApp(firebaseConfig);
+const database = firebase.database();
+
+// ============================================================
+// 📊 REFERÊNCIAS NO BANCO DE DADOS
+// ============================================================
+const REF_MEDICOES = 'medicoes';
+const REF_EMPRESAS = 'empresas';
+const REF_CONFIG = 'config';
 
 // ============================================================
 // 🔐 USUÁRIOS E SENHAS (CRIPTOGRAFADAS)
 // ============================================================
-// Chave secreta para criptografia (mantenha em segredo)
 const CHAVE_SECRETA = 'AssessorDNIT2025@#';
 
-// Função para criptografar (ofuscação simples)
 function criptografar(texto) {
     let resultado = '';
     for (let i = 0; i < texto.length; i++) {
         const charCode = texto.charCodeAt(i) + CHAVE_SECRETA.charCodeAt(i % CHAVE_SECRETA.length);
         resultado += String.fromCharCode(charCode);
     }
-    return btoa(resultado); // Codifica em base64
+    return btoa(resultado);
 }
 
-// Função para descriptografar
 function descriptografar(textoCriptografado) {
     try {
         const texto = atob(textoCriptografado);
@@ -1334,21 +1358,9 @@ function descriptografar(textoCriptografado) {
     }
 }
 
-// ============================================================
-// 🔐 USUÁRIOS E SENHAS CRIPTOGRAFADAS
-// ============================================================
-// As senhas abaixo foram criptografadas com a chave secreta
-// Senhas originais:
-//   dev1 -> Phmc@131416
-//   arnaldo_cunha -> consorcio_dnit
-// ============================================================
 const usuariosAutorizados = {
-    'dev1': {
-        senha: criptografar('Phmc@131416')
-    },
-    'arnaldo_cunha': {
-        senha: criptografar('consorcio_dnit')
-    }
+    'dev1': { senha: criptografar('Phmc@131416') },
+    'arnaldo_cunha': { senha: criptografar('consorcio_dnit') }
 };
 
 // ============================================================
@@ -1375,7 +1387,6 @@ function fazerLogin(event) {
         return false;
     }
     
-    // Descriptografa a senha armazenada e compara
     const senhaDescriptografada = descriptografar(usuariosAutorizados[username].senha);
     
     if (password === senhaDescriptografada) {
@@ -1405,12 +1416,11 @@ function fazerLogout() {
     document.getElementById('password').value = '';
 }
 
-// ============================================================
-// 🔐 FUNÇÃO MOSTRAR/OCULTAR SENHA
-// ============================================================
 function toggleSenha() {
     const senhaInput = document.getElementById('password');
     const toggleBtn = document.getElementById('toggleSenhaBtn');
+    
+    if (!senhaInput || !toggleBtn) return;
     
     if (senhaInput.type === 'password') {
         senhaInput.type = 'text';
@@ -1438,18 +1448,17 @@ if (localStorage.getItem('sessaoAtiva') === 'true') {
 const totalContrato = 89863121.73;
 const valorPrevistoMensal = 1497718.70;
 
-// Dados extraídos do PDF - 10 primeiras medições
 const dadosPDF = [
-    { med: '1', mes: 'set/2025', data: '30/09/2025', realizado: 1888413.42, reaj: 0, ndg: 85, despesa: 50000, status: 'pago', obs: 'Primeira medição' },
-    { med: '2', mes: 'out/2025', data: '31/10/2025', realizado: 1713422.19, reaj: 0, ndg: 92, despesa: 45000, status: 'pago', obs: '' },
-    { med: '3', mes: 'nov/2025', data: '30/11/2025', realizado: 1590289.17, reaj: 57428.89, ndg: 85, despesa: 55000, status: 'pago', obs: '' },
-    { med: '4', mes: 'dez/2025', data: '31/12/2025', realizado: 1524232.70, reaj: 55024.77, ndg: 88, despesa: 60000, status: 'pago', obs: 'Medição com reajuste' },
+    { med: '1', mes: 'set/2025', data: '30/09/2025', realizado: 1488413.42, reaj: 0, ndg: 85, despesa: 50000, status: 'pago', obs: 'Primeira medição' },
+    { med: '2', mes: 'out/2025', data: '31/10/2025', realizado: 1713422.18, reaj: 61854.50, ndg: 92, despesa: 45000, status: 'pago', obs: '' },
+    { med: '3', mes: 'nov/2025', data: '30/11/2025', realizado: 1590829.15, reaj: 57428.89, ndg: 85, despesa: 55000, status: 'pago', obs: '' },
+    { med: '4', mes: 'dez/2025', data: '31/12/2025', realizado: 1524232.69, reaj: 55024.77, ndg: 88, despesa: 60000, status: 'pago', obs: '' },
     { med: '5', mes: 'jan/2026', data: '31/01/2026', realizado: 1437596.56, reaj: 51897.21, ndg: 75, despesa: 70000, status: 'pago', obs: '' },
-    { med: '6', mes: 'fev/2026', data: '01/02/2026', realizado: 1437596.56, reaj: 0, ndg: 72, despesa: 68000, status: 'pago', obs: '' },
-    { med: '7', mes: 'mar/2026', data: '01/03/2026', realizado: 1437596.56, reaj: 0, ndg: 78, despesa: 62000, status: 'pago', obs: '' },
-    { med: '8', mes: 'abr/2026', data: '04/04/2026', realizado: 1437596.56, reaj: 0, ndg: 78, despesa: 58000, status: 'pago', obs: '' },
-    { med: '9', mes: 'mai/2026', data: '05/05/2026', realizado: 1450000.00, reaj: 52345.67, ndg: 82, despesa: 54000, status: 'pago', obs: '' },
-    { med: '10', mes: 'jun/2026', data: '06/06/2026', realizado: 1480000.00, reaj: 0, ndg: 90, despesa: 49000, status: 'pago', obs: 'Alta performance' }
+    { med: '6', mes: 'fev/2026', data: '01/02/2026', realizado: 1437596.56, reaj: 51897.21, ndg: 72, despesa: 68000, status: 'pago', obs: '' },
+    { med: '7', mes: 'mar/2026', data: '01/03/2026', realizado: 1437596.56, reaj: 51897.21, ndg: 78, despesa: 62000, status: 'pago', obs: '' },
+    { med: '8', mes: 'abr/2026', data: '04/04/2026', realizado: 1437596.56, reaj: 51897.21, ndg: 78, despesa: 58000, status: 'pago', obs: '' },
+    { med: '9', mes: 'mai/2026', data: '05/05/2026', realizado: 1525867.34, reaj: 55083.78, ndg: 82, despesa: 54000, status: 'pago', obs: '' },
+    { med: '10', mes: 'jun/2026', data: '06/06/2026', realizado: 1592128.37, reaj: 57475.80, ndg: 90, despesa: 49000, status: 'pagamento', obs: '' }
 ];
 
 // ============================================================
@@ -1460,6 +1469,8 @@ var chartFinanceiro = null;
 var chartAcumulado = null;
 var currentChartType = 'bar';
 var empresasSelecionadas = {};
+var dadosCarregados = false;
+var salvando = false;
 
 var percentuaisEmpresas = {
     LBR: 0.35,
@@ -1478,7 +1489,266 @@ var statusOptions = [
 ];
 
 // ============================================================
-// 🔧 FUNÇÕES AUXILIARES
+// 🔥 FUNÇÕES DO FIREBASE
+// ============================================================
+function gerarDadosIniciais() {
+    var meses = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+    var dadosTemp = [];
+    var ano = 2025;
+    var idx = 8;
+    
+    for (var c = 1; c <= 60; c++) {
+        var mesAno = meses[idx] + "/" + ano;
+        var reaj = 0, status = "nao_iniciado", obs = "", dataEntrega = "", realizado = 0, ndg = 0, despesa = 0;
+        
+        var dadoPDF = dadosPDF.find(function(d) { return parseInt(d.med) === c; });
+        
+        if (dadoPDF) {
+            reaj = dadoPDF.reaj || 0;
+            status = dadoPDF.status || "nao_iniciado";
+            dataEntrega = dadoPDF.data || "";
+            realizado = dadoPDF.realizado || 0;
+            ndg = dadoPDF.ndg || 0;
+            despesa = dadoPDF.despesa || 0;
+            obs = dadoPDF.obs || "";
+        } else {
+            if (c <= 18) {
+                var rand = Math.random();
+                if (rand < 0.4) {
+                    status = ["pago", "aprovado", "analise", "entregue", "pagamento"][Math.floor(Math.random() * 5)];
+                    var dia = String(Math.floor(Math.random() * 28) + 1).padStart(2, '0');
+                    dataEntrega = dia + "/" + mesAno.split('/')[0].toUpperCase() + "/" + mesAno.split('/')[1];
+                    realizado = valorPrevistoMensal * (0.85 + Math.random() * 0.3);
+                    ndg = Math.floor(Math.random() * 40) + 60;
+                    despesa = Math.floor(Math.random() * 30000) + 30000;
+                    reaj = Math.random() > 0.7 ? Math.floor(Math.random() * 60000) : 0;
+                }
+            }
+        }
+        
+        dadosTemp.push({
+            med: String(c),
+            mes: mesAno,
+            data: dataEntrega,
+            previsto: valorPrevistoMensal,
+            reaj: reaj,
+            status: status,
+            obs: obs,
+            realizado: realizado,
+            ndg: ndg,
+            despesa: despesa,
+            totalLiq: valorPrevistoMensal + reaj,
+            acumulado: 0
+        });
+        
+        idx++;
+        if (idx >= 12) { idx = 0; ano++; }
+    }
+    
+    var somaAcumulada = 0;
+    for (var i = 0; i < dadosTemp.length; i++) {
+        if (dadosTemp[i].data && dadosTemp[i].data !== '' && isDataValida(dadosTemp[i].data)) {
+            somaAcumulada += dadosTemp[i].totalLiq;
+        }
+        dadosTemp[i].acumulado = somaAcumulada;
+    }
+    
+    return dadosTemp;
+}
+
+// ============================================================
+// 🔥 SALVAR DADOS NO FIREBASE
+// ============================================================
+function salvarDadosFirebase(dadosParaSalvar) {
+    if (salvando) return;
+    salvando = true;
+    
+    const updates = {};
+    const empresas = {};
+    
+    for (var i = 0; i < dadosParaSalvar.length; i++) {
+        const d = dadosParaSalvar[i];
+        updates[REF_MEDICOES + '/' + d.med] = {
+            med: d.med,
+            mes: d.mes,
+            data: d.data || '',
+            previsto: d.previsto || 0,
+            realizado: d.realizado || 0,
+            reaj: d.reaj || 0,
+            ndg: d.ndg || 0,
+            despesa: d.despesa || 0,
+            status: d.status || 'nao_iniciado',
+            obs: d.obs || '',
+            totalLiq: d.totalLiq || 0,
+            acumulado: d.acumulado || 0
+        };
+    }
+    
+    for (var emp in empresasSelecionadas) {
+        if (empresasSelecionadas[emp]) {
+            empresas[emp] = true;
+        }
+    }
+    
+    updates[REF_EMPRESAS] = empresas;
+    updates[REF_CONFIG + '/ultimaAtualizacao'] = new Date().toISOString();
+    updates[REF_CONFIG + '/usuario'] = localStorage.getItem('usuarioLogado') || 'desconhecido';
+    
+    database.ref().update(updates)
+        .then(function() {
+            salvando = false;
+            mostrarStatus('✅ Dados salvos no Firebase!', true);
+        })
+        .catch(function(error) {
+            salvando = false;
+            mostrarStatus('❌ Erro ao salvar: ' + error.message, false);
+            console.error('Erro Firebase:', error);
+        });
+}
+
+// ============================================================
+// 🔥 CARREGAR DADOS DO FIREBASE
+// ============================================================
+function carregarDados() {
+    if (dadosCarregados) return;
+    
+    mostrarStatus('🔄 Carregando dados do Firebase...', true);
+    
+    database.ref(REF_MEDICOES).once('value')
+        .then(function(snapshot) {
+            const dadosFirebase = snapshot.val();
+            
+            if (dadosFirebase) {
+                // Converte objeto em array
+                const dadosTemp = [];
+                for (var key in dadosFirebase) {
+                    if (dadosFirebase.hasOwnProperty(key)) {
+                        const item = dadosFirebase[key];
+                        item.med = key;
+                        dadosTemp.push(item);
+                    }
+                }
+                
+                // Ordena por med
+                dadosTemp.sort(function(a, b) {
+                    return parseInt(a.med) - parseInt(b.med);
+                });
+                
+                dados = dadosTemp;
+                dadosCarregados = true;
+                
+                // Carrega empresas selecionadas
+                database.ref(REF_EMPRESAS).once('value')
+                    .then(function(snapEmpresas) {
+                        const empresasFirebase = snapEmpresas.val();
+                        if (empresasFirebase) {
+                            for (var emp in empresasFirebase) {
+                                if (empresasFirebase[emp]) {
+                                    empresasSelecionadas[emp] = true;
+                                }
+                            }
+                            // Atualiza os botões
+                            document.querySelectorAll('.empresa-btn').forEach(function(btn) {
+                                const empresa = btn.getAttribute('data-empresa');
+                                if (empresasSelecionadas[empresa]) {
+                                    btn.classList.add('selecionado');
+                                } else {
+                                    btn.classList.remove('selecionado');
+                                }
+                            });
+                        }
+                    })
+                    .catch(function() {
+                        // Fallback
+                        document.querySelectorAll('.empresa-btn').forEach(function(btn) {
+                            const empresa = btn.getAttribute('data-empresa');
+                            empresasSelecionadas[empresa] = true;
+                            btn.classList.add('selecionado');
+                        });
+                    });
+                
+                mostrarStatus('✅ Dados carregados do Firebase!', true);
+                initSelects();
+                atualizarCardsEmpresas();
+                atualizarTotalSelecionado();
+                aplicarFiltros();
+            } else {
+                // Primeira vez - salva dados iniciais
+                mostrarStatus('📥 Primeiro acesso! Salvando dados iniciais...', true);
+                dados = gerarDadosIniciais();
+                dadosCarregados = true;
+                
+                // Seleciona todas as empresas
+                document.querySelectorAll('.empresa-btn').forEach(function(btn) {
+                    const empresa = btn.getAttribute('data-empresa');
+                    empresasSelecionadas[empresa] = true;
+                    btn.classList.add('selecionado');
+                });
+                
+                salvarDadosFirebase(dados);
+                initSelects();
+                atualizarCardsEmpresas();
+                atualizarTotalSelecionado();
+                aplicarFiltros();
+            }
+        })
+        .catch(function(error) {
+            console.error('Erro ao carregar do Firebase:', error);
+            mostrarStatus('❌ Erro ao carregar dados. Usando dados locais.', false);
+            // Fallback para localStorage
+            carregarDadosLocal();
+        });
+}
+
+// ============================================================
+// 📊 FALLBACK - CARREGAR DADOS DO LOCALSTORAGE
+// ============================================================
+function carregarDadosLocal() {
+    var salvos = localStorage.getItem('medições_dados_v9_final');
+    if (salvos) {
+        try {
+            dados = JSON.parse(salvos);
+            for (var i = 0; i < dados.length; i++) {
+                if (typeof dados[i].obs === 'undefined') dados[i].obs = '';
+                if (typeof dados[i].reaj === 'undefined') dados[i].reaj = 0;
+                if (typeof dados[i].despesa === 'undefined') dados[i].despesa = 0;
+                if (typeof dados[i].acumulado === 'undefined') dados[i].acumulado = 0;
+                if (typeof dados[i].ndg === 'undefined') dados[i].ndg = 0;
+                dados[i].previsto = valorPrevistoMensal;
+                dados[i].totalLiq = dados[i].previsto + (dados[i].reaj || 0);
+                if (dados[i].data === '-' || dados[i].data === '---') {
+                    dados[i].data = '';
+                }
+            }
+            var somaAcumulada = 0;
+            for (var i = 0; i < dados.length; i++) {
+                if (dados[i].data && dados[i].data !== '' && isDataValida(dados[i].data)) {
+                    somaAcumulada += dados[i].totalLiq;
+                }
+                dados[i].acumulado = somaAcumulada;
+            }
+            mostrarStatus('Dados carregados do localStorage!', true);
+        } catch(e) {
+            dados = gerarDadosIniciais();
+        }
+    } else {
+        dados = gerarDadosIniciais();
+        mostrarStatus('Dados iniciais carregados!', true);
+    }
+    
+    initSelects();
+    document.querySelectorAll('.empresa-btn').forEach(function(btn) {
+        var empresa = btn.getAttribute('data-empresa');
+        empresasSelecionadas[empresa] = true;
+        btn.classList.add('selecionado');
+    });
+    atualizarCardsEmpresas();
+    atualizarTotalSelecionado();
+    aplicarFiltros();
+}
+
+// ============================================================
+// 🔧 FUNÇÕES AUXILIARES (mantidas do original)
 // ============================================================
 function isDataValida(dataStr) {
     if (!dataStr || dataStr.length !== 10) return false;
@@ -1635,130 +1905,10 @@ function aplicarMascaraData(input) {
 
 function mostrarStatus(mensagem, sucesso) {
     var statusDiv = document.getElementById('saveStatus');
-    statusDiv.textContent = (sucesso ? '✅ ' : '❌ ') + mensagem;
+    statusDiv.textContent = mensagem;
     statusDiv.style.backgroundColor = sucesso ? '#28a745' : '#dc3545';
     statusDiv.style.display = 'block';
-    setTimeout(function() { statusDiv.style.display = 'none'; }, 2000);
-}
-
-// ============================================================
-// 📊 GERAR DADOS COM VALORES DO PDF
-// ============================================================
-function gerarDadosIniciais() {
-    var meses = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
-    var dadosTemp = [];
-    var ano = 2025;
-    var idx = 8; // Começa em setembro
-    
-    for (var c = 1; c <= 60; c++) {
-        var mesAno = meses[idx] + "/" + ano;
-        var reaj = 0, status = "nao_iniciado", obs = "", dataEntrega = "", realizado = 0, ndg = 0, despesa = 0;
-        
-        // Verifica se tem dados do PDF para esta medição
-        var dadoPDF = dadosPDF.find(function(d) { return parseInt(d.med) === c; });
-        
-        if (dadoPDF) {
-            reaj = dadoPDF.reaj || 0;
-            status = dadoPDF.status || "nao_iniciado";
-            dataEntrega = dadoPDF.data || "";
-            realizado = dadoPDF.realizado || 0;
-            ndg = dadoPDF.ndg || 0;
-            despesa = dadoPDF.despesa || 0;
-            obs = dadoPDF.obs || "";
-        } else {
-            // Para medições além da 12, gerar aleatório ou manter como não iniciado
-            if (c <= 18) {
-                var rand = Math.random();
-                if (rand < 0.4) {
-                    status = ["pago", "aprovado", "analise", "entregue", "pagamento"][Math.floor(Math.random() * 5)];
-                    var dia = String(Math.floor(Math.random() * 28) + 1).padStart(2, '0');
-                    dataEntrega = dia + "/" + mesAno.split('/')[0].toUpperCase() + "/" + mesAno.split('/')[1];
-                    realizado = valorPrevistoMensal * (0.85 + Math.random() * 0.3);
-                    ndg = Math.floor(Math.random() * 40) + 60;
-                    despesa = Math.floor(Math.random() * 30000) + 30000;
-                    reaj = Math.random() > 0.7 ? Math.floor(Math.random() * 60000) : 0;
-                }
-            }
-        }
-        
-        dadosTemp.push({
-            med: String(c),
-            mes: mesAno,
-            data: dataEntrega,
-            previsto: valorPrevistoMensal,
-            reaj: reaj,
-            status: status,
-            obs: obs,
-            realizado: realizado,
-            ndg: ndg,
-            despesa: despesa,
-            totalLiq: valorPrevistoMensal + reaj,
-            acumulado: 0
-        });
-        
-        idx++;
-        if (idx >= 12) { idx = 0; ano++; }
-    }
-    
-    // Calcular acumulado
-    var somaAcumulada = 0;
-    for (var i = 0; i < dadosTemp.length; i++) {
-        if (dadosTemp[i].data && dadosTemp[i].data !== '' && isDataValida(dadosTemp[i].data)) {
-            somaAcumulada += dadosTemp[i].totalLiq;
-        }
-        dadosTemp[i].acumulado = somaAcumulada;
-    }
-    
-    return dadosTemp;
-}
-
-// ============================================================
-// 📊 FUNÇÕES DE CARREGAMENTO E INICIALIZAÇÃO
-// ============================================================
-function carregarDados() {
-    var salvos = localStorage.getItem('medições_dados_v9_final');
-    if (salvos) {
-        try {
-            dados = JSON.parse(salvos);
-            for (var i = 0; i < dados.length; i++) {
-                if (typeof dados[i].obs === 'undefined') dados[i].obs = '';
-                if (typeof dados[i].reaj === 'undefined') dados[i].reaj = 0;
-                if (typeof dados[i].despesa === 'undefined') dados[i].despesa = 0;
-                if (typeof dados[i].acumulado === 'undefined') dados[i].acumulado = 0;
-                if (typeof dados[i].ndg === 'undefined') dados[i].ndg = 0;
-                dados[i].previsto = valorPrevistoMensal;
-                dados[i].totalLiq = dados[i].previsto + (dados[i].reaj || 0);
-                
-                if (dados[i].data === '-' || dados[i].data === '---') {
-                    dados[i].data = '';
-                }
-            }
-            var somaAcumulada = 0;
-            for (var i = 0; i < dados.length; i++) {
-                if (dados[i].data && dados[i].data !== '' && isDataValida(dados[i].data)) {
-                    somaAcumulada += dados[i].totalLiq;
-                }
-                dados[i].acumulado = somaAcumulada;
-            }
-            mostrarStatus('Dados carregados!', true);
-        } catch(e) {
-            dados = gerarDadosIniciais();
-        }
-    } else {
-        dados = gerarDadosIniciais();
-        localStorage.setItem('medições_dados_v9_final', JSON.stringify(dados));
-        mostrarStatus('Dados iniciais carregados!', true);
-    }
-    
-    initSelects();
-    document.querySelectorAll('.empresa-btn').forEach(function(btn) {
-        var empresa = btn.getAttribute('data-empresa');
-        empresasSelecionadas[empresa] = true;
-        btn.classList.add('selecionado');
-    });
-    atualizarCardsEmpresas();
-    atualizarTotalSelecionado();
-    aplicarFiltros();
+    setTimeout(function() { statusDiv.style.display = 'none'; }, 3000);
 }
 
 // ============================================================
@@ -2010,6 +2160,8 @@ function toggleEmpresa(botao) {
     atualizarCardsEmpresas();
     atualizarTotalSelecionado();
     aplicarFiltros();
+    // Salva a seleção de empresas no Firebase
+    salvarDadosFirebase(dados);
 }
 
 function atualizarCards(filtrados) {
@@ -2649,6 +2801,10 @@ function salvarTodos() {
         }
     }
     
+    // SALVA NO FIREBASE
+    salvarDadosFirebase(dados);
+    
+    // Também salva no localStorage como fallback
     localStorage.setItem('medições_dados_v9_final', JSON.stringify(dados));
     mostrarStatus('Dados salvos!', true);
     aplicarFiltros();
@@ -3081,7 +3237,10 @@ function gerarApresentacao() {
 // ============================================================
 // Se já estiver logado (sessão ativa), carrega os dados
 if (localStorage.getItem('sessaoAtiva') === 'true') {
-    carregarDados();
+    // Tenta carregar do Firebase primeiro
+    if (typeof carregarDados === 'function') {
+        carregarDados();
+    }
 }
 
 // Fecha dropdowns ao clicar fora
@@ -3097,5 +3256,3 @@ document.addEventListener('click', function(event) {
     }
 });
 </script>
-</body>
-</html>
