@@ -5,6 +5,7 @@
     <title>Relatório de Medições</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <style>
+    /* ===== ESTILOS ORIGINAIS (mantidos) ===== */
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { 
         font-family: 'Segoe UI', 'Inter', system-ui, sans-serif; 
@@ -52,9 +53,101 @@
         margin-top: 8px;
     }
     
-    .header-logo-right { flex-shrink: 0; }
+    .header-logo-right { flex-shrink: 0; display: flex; align-items: center; gap: 16px; }
     .header-logo-right img { height: 70px; width: auto; display: block; background: transparent; }
     
+    /* ===== ESTILOS DO LOGIN ===== */
+    .user-info {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        background: #f8fafc;
+        padding: 6px 16px 6px 20px;
+        border-radius: 40px;
+        font-size: 13px;
+        color: #1a3a4a;
+        border: 1px solid #e2e8f0;
+    }
+    .user-info .logout-btn {
+        background: #dc3545;
+        color: white;
+        border: none;
+        padding: 5px 14px;
+        border-radius: 30px;
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 11px;
+        transition: background 0.2s;
+    }
+    .user-info .logout-btn:hover { background: #c0392b; }
+    
+    .login-overlay {
+        position: fixed;
+        top: 0; left: 0; width: 100%; height: 100%;
+        background: linear-gradient(135deg, #1a3a4a 0%, #2c5f7a 100%);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 9999;
+    }
+    .login-overlay.hidden { display: none; }
+    .login-box {
+        background: white;
+        border-radius: 24px;
+        padding: 40px;
+        width: 100%;
+        max-width: 400px;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    .login-box h1 { color: #4496CB; font-size: 24px; text-align: center; margin-bottom: 8px; }
+    .login-box .subtitle { text-align: center; color: #64748b; font-size: 14px; margin-bottom: 30px; }
+    .login-box .logo-area { text-align: center; margin-bottom: 20px; }
+    .login-box .logo-area img { height: 60px; }
+    .login-box label { font-weight: 600; color: #1a3a4a; font-size: 14px; display: block; margin-bottom: 4px; }
+    .login-box input {
+        width: 100%;
+        padding: 12px 16px;
+        border: 1px solid #cbd5e1;
+        border-radius: 12px;
+        font-size: 15px;
+        margin-bottom: 16px;
+        transition: border-color 0.2s;
+    }
+    .login-box input:focus { outline: none; border-color: #4496CB; box-shadow: 0 0 0 3px rgba(68,150,203,0.1); }
+    .login-box .btn-login {
+        width: 100%;
+        padding: 14px;
+        background: #4496CB;
+        color: white;
+        border: none;
+        border-radius: 12px;
+        font-size: 16px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: background 0.2s;
+    }
+    .login-box .btn-login:hover { background: #2c5f7a; }
+    .login-box .error { color: #dc3545; font-size: 13px; text-align: center; margin-top: 12px; display: none; }
+    .login-box .error.show { display: block; }
+    .login-box .footer { text-align: center; margin-top: 20px; font-size: 12px; color: #94a3b8; }
+    .login-box .users-info {
+        background: #f8fafc;
+        border-radius: 12px;
+        padding: 12px;
+        margin-top: 16px;
+        font-size: 12px;
+        color: #64748b;
+        text-align: center;
+    }
+    .login-box .users-info code {
+        background: #e2e8f0;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 11px;
+        margin: 0 4px;
+    }
+
+    /* ===== ESTILOS ORIGINAIS (continuação) ===== */
     .btn-group { 
         display: flex; 
         flex-wrap: wrap; 
@@ -519,7 +612,6 @@
         color: white;
     }
     
-    /* Toggle centralizado dentro da tabela */
     .toggle-tabela {
         display: flex;
         justify-content: center;
@@ -630,12 +722,38 @@
         .dropdown-menu { min-width: 100%; left: 0; right: 0; }
         .toggle-label { margin-left: 0; }
         .toggle-tabela .toggle-label { width: 100%; justify-content: center; }
+        .header-logo-right { flex-wrap: wrap; justify-content: center; }
+        .user-info { font-size: 12px; padding: 4px 10px 4px 14px; }
     }
     </style>
 </head>
 <body>
 
-<div class="container" id="relatorioPDF">
+<!-- ============================================================ -->
+<!-- 🔐 TELA DE LOGIN -->
+<!-- ============================================================ -->
+<div class="login-overlay" id="loginOverlay">
+    <div class="login-box">
+        <h1>📊 Relatório de Medições</h1>
+        <p class="subtitle">Controle de Medições Assessor-DNIT</p>
+        
+        <form id="loginForm" onsubmit="return fazerLogin(event)">
+            <label for="username">Usuário</label>
+            <input type="text" id="username" placeholder="Digite seu usuário" required autofocus>
+            
+            <label for="password">Senha</label>
+            <input type="password" id="password" placeholder="Digite sua senha" required>
+            
+            <button type="submit" class="btn-login">🔐 Entrar</button>
+            <div class="error" id="loginError">❌ Usuário ou senha inválidos!</div>
+        </form>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- 📊 DASHBOARD PRINCIPAL -->
+<!-- ============================================================ -->
+<div class="container" id="relatorioPDF" style="display:none;">
     <div class="save-status" id="saveStatus">Salvando...</div>
     
     <div class="header">
@@ -649,6 +767,10 @@
         </div>
         <div class="header-logo-right">
             <img src="https://raw.githubusercontent.com/phmca/dashboard-medicoes/main/monocromatica-dnit-padrao.png" alt="Logo DNIT" onerror="this.style.display='none'">
+            <div class="user-info">
+                <span>👤 <span id="usuarioNome">dev1</span></span>
+                <button class="logout-btn" onclick="fazerLogout()">Sair</button>
+            </div>
         </div>
     </div>
     
@@ -953,15 +1075,164 @@
         <br>📅 Gerado em: <span id="pdfDataGeracao"></span>
     </div>
 </div>
-
 <script>
-var totalContrato = 89863121.73;
-var valorPrevistoMensal = 1497718.70;
+
+// ============================================================
+// 🔐 USUÁRIOS E SENHAS (CRIPTOGRAFADAS)
+// ============================================================
+// Chave secreta para criptografia (mantenha em segredo)
+const CHAVE_SECRETA = 'AssessorDNIT2025@#';
+
+// Função para criptografar (ofuscação simples)
+function criptografar(texto) {
+    let resultado = '';
+    for (let i = 0; i < texto.length; i++) {
+        const charCode = texto.charCodeAt(i) + CHAVE_SECRETA.charCodeAt(i % CHAVE_SECRETA.length);
+        resultado += String.fromCharCode(charCode);
+    }
+    return btoa(resultado); // Codifica em base64
+}
+
+// Função para descriptografar
+function descriptografar(textoCriptografado) {
+    try {
+        const texto = atob(textoCriptografado);
+        let resultado = '';
+        for (let i = 0; i < texto.length; i++) {
+            const charCode = texto.charCodeAt(i) - CHAVE_SECRETA.charCodeAt(i % CHAVE_SECRETA.length);
+            resultado += String.fromCharCode(charCode);
+        }
+        return resultado;
+    } catch(e) {
+        return '';
+    }
+}
+
+// ============================================================
+// 🔐 USUÁRIOS E SENHAS CRIPTOGRAFADAS
+// ============================================================
+// As senhas abaixo foram criptografadas com a chave secreta
+// Senhas originais:
+//   dev1 -> Phmc@131416
+//   arnaldo_cunha -> consorcio_dnit
+// ============================================================
+const usuariosAutorizados = {
+    'dev1': {
+        senha: criptografar('Phmc@131416')
+    },
+    'arnaldo_cunha': {
+        senha: criptografar('consorcio_dnit')
+    }
+};
+
+// ============================================================
+// 🔐 FUNÇÕES DE LOGIN
+// ============================================================
+function fazerLogin(event) {
+    event.preventDefault();
+    
+    const username = document.getElementById('username').value.trim();
+    const password = document.getElementById('password').value;
+    const errorEl = document.getElementById('loginError');
+    
+    errorEl.classList.remove('show');
+    
+    if (!username || !password) {
+        errorEl.textContent = '❌ Preencha usuário e senha!';
+        errorEl.classList.add('show');
+        return false;
+    }
+    
+    if (!usuariosAutorizados[username]) {
+        errorEl.textContent = '❌ Usuário não encontrado!';
+        errorEl.classList.add('show');
+        return false;
+    }
+    
+    // Descriptografa a senha armazenada e compara
+    const senhaDescriptografada = descriptografar(usuariosAutorizados[username].senha);
+    
+    if (password === senhaDescriptografada) {
+        localStorage.setItem('usuarioLogado', username);
+        localStorage.setItem('sessaoAtiva', 'true');
+        document.getElementById('usuarioNome').textContent = username;
+        document.getElementById('loginOverlay').classList.add('hidden');
+        document.getElementById('relatorioPDF').style.display = 'block';
+        
+        if (typeof carregarDados === 'function') {
+            carregarDados();
+        }
+        return true;
+    } else {
+        errorEl.textContent = '❌ Senha incorreta!';
+        errorEl.classList.add('show');
+        return false;
+    }
+}
+
+function fazerLogout() {
+    localStorage.removeItem('sessaoAtiva');
+    localStorage.removeItem('usuarioLogado');
+    document.getElementById('relatorioPDF').style.display = 'none';
+    document.getElementById('loginOverlay').classList.remove('hidden');
+    document.getElementById('username').value = '';
+    document.getElementById('password').value = '';
+}
+
+// ============================================================
+// 🔐 FUNÇÃO MOSTRAR/OCULTAR SENHA
+// ============================================================
+function toggleSenha() {
+    const senhaInput = document.getElementById('password');
+    const toggleBtn = document.getElementById('toggleSenhaBtn');
+    
+    if (senhaInput.type === 'password') {
+        senhaInput.type = 'text';
+        toggleBtn.textContent = '🙈';
+        toggleBtn.title = 'Ocultar senha';
+    } else {
+        senhaInput.type = 'password';
+        toggleBtn.textContent = '👁️';
+        toggleBtn.title = 'Mostrar senha';
+    }
+}
+
+// ============================================================
+// 🔐 VERIFICAÇÃO DE SESSÃO
+// ============================================================
+if (localStorage.getItem('sessaoAtiva') === 'true') {
+    document.getElementById('loginOverlay').classList.add('hidden');
+    document.getElementById('relatorioPDF').style.display = 'block';
+    document.getElementById('usuarioNome').textContent = localStorage.getItem('usuarioLogado') || 'dev1';
+}
+
+// ============================================================
+// 📊 DADOS DO PDF (VALORES REAIS)
+// ============================================================
+const totalContrato = 89863121.73;
+const valorPrevistoMensal = 1497718.70;
+
+// Dados extraídos do PDF - 10 primeiras medições
+const dadosPDF = [
+    { med: '1', mes: 'set/2025', data: '30/09/2025', realizado: 1888413.42, reaj: 0, ndg: 85, despesa: 50000, status: 'pago', obs: 'Primeira medição' },
+    { med: '2', mes: 'out/2025', data: '31/10/2025', realizado: 1713422.19, reaj: 0, ndg: 92, despesa: 45000, status: 'pago', obs: '' },
+    { med: '3', mes: 'nov/2025', data: '30/11/2025', realizado: 1590289.17, reaj: 57428.89, ndg: 85, despesa: 55000, status: 'pago', obs: '' },
+    { med: '4', mes: 'dez/2025', data: '31/12/2025', realizado: 1524232.70, reaj: 55024.77, ndg: 88, despesa: 60000, status: 'pago', obs: 'Medição com reajuste' },
+    { med: '5', mes: 'jan/2026', data: '31/01/2026', realizado: 1437596.56, reaj: 51897.21, ndg: 75, despesa: 70000, status: 'pago', obs: '' },
+    { med: '6', mes: 'fev/2026', data: '01/02/2026', realizado: 1437596.56, reaj: 0, ndg: 72, despesa: 68000, status: 'pago', obs: '' },
+    { med: '7', mes: 'mar/2026', data: '01/03/2026', realizado: 1437596.56, reaj: 0, ndg: 78, despesa: 62000, status: 'pago', obs: '' },
+    { med: '8', mes: 'abr/2026', data: '04/04/2026', realizado: 1437596.56, reaj: 0, ndg: 78, despesa: 58000, status: 'pago', obs: '' },
+    { med: '9', mes: 'mai/2026', data: '05/05/2026', realizado: 1450000.00, reaj: 52345.67, ndg: 82, despesa: 54000, status: 'pago', obs: '' },
+    { med: '10', mes: 'jun/2026', data: '06/06/2026', realizado: 1480000.00, reaj: 0, ndg: 90, despesa: 49000, status: 'pago', obs: 'Alta performance' }
+];
+
+// ============================================================
+// 📊 VARIÁVEIS GLOBAIS
+// ============================================================
 var dados = [];
 var chartFinanceiro = null;
 var chartAcumulado = null;
 var currentChartType = 'bar';
-
 var empresasSelecionadas = {};
 
 var percentuaisEmpresas = {
@@ -971,34 +1242,107 @@ var percentuaisEmpresas = {
     Prisma: 0.15
 };
 
-function calcularPercentualRealPorEmpresa(empresa) {
-    var fator = percentuaisEmpresas[empresa] || 0;
-    
-    var medSelecionados = obterValoresDropdown('dropdownMedicao');
-    var perSelecionados = obterValoresDropdown('dropdownPeriodo');
-    var anoSelecionados = obterValoresDropdown('dropdownAno');
-    var stSelecionados = obterValoresDropdown('dropdownStatus');
-    var mostrar = document.getElementById('mostrarVazios') ? document.getElementById('mostrarVazios').checked : false;
-    
-    var filtrados = dados.slice();
-    if (!mostrar) filtrados = filtrados.filter(function(d) { return d.data && d.data !== '' && isDataValida(d.data); });
-    if (medSelecionados.length > 0) filtrados = filtrados.filter(function(d) { return medSelecionados.indexOf(d.med) !== -1; });
-    if (perSelecionados.length > 0) filtrados = filtrados.filter(function(d) { return perSelecionados.indexOf(d.mes) !== -1; });
-    if (anoSelecionados.length > 0) filtrados = filtrados.filter(function(d) { return anoSelecionados.indexOf(extrairAno(d.mes)) !== -1; });
-    if (stSelecionados.length > 0) {
-        var stNorm = stSelecionados.map(function(s) { return s === 'não_iniciado' ? 'nao_iniciado' : s; });
-        filtrados = filtrados.filter(function(d) { return stNorm.indexOf(d.status) !== -1; });
+var statusOptions = [
+    {v:"entregue", l:"Entregue"},
+    {v:"aprovado", l:"Aprovado"},
+    {v:"analise", l:"Em Análise"},
+    {v:"pagamento", l:"Em Pagamento"},
+    {v:"pago", l:"Pago"},
+    {v:"nao_iniciado", l:"Não Iniciado"}
+];
+
+// ============================================================
+// 🔧 FUNÇÕES AUXILIARES
+// ============================================================
+function isDataValida(dataStr) {
+    if (!dataStr || dataStr.length !== 10) return false;
+    var partes = dataStr.split('/');
+    if (partes.length !== 3) return false;
+    var dia = parseInt(partes[0], 10);
+    var mes = parseInt(partes[1], 10);
+    var ano = parseInt(partes[2], 10);
+    if (isNaN(dia) || isNaN(mes) || isNaN(ano)) return false;
+    if (dia < 1 || dia > 31) return false;
+    if (mes < 1 || mes > 12) return false;
+    if (ano < 2025 || ano > 2030) return false;
+    return true;
+}
+
+function getDescontoPorNDG(ndg) {
+    if (ndg >= 90) return 0;
+    if (ndg >= 80) return 2.5;
+    if (ndg >= 70) return 5;
+    if (ndg >= 50) return 7.5;
+    return 10;
+}
+
+function getClassePorNDG(ndg) {
+    if (ndg >= 90) return 'ndg-good';
+    if (ndg >= 70) return 'ndg-warning';
+    return 'ndg-danger';
+}
+
+function extrairAno(mesAno) {
+    var partes = mesAno.split('/');
+    return partes[1];
+}
+
+function formatar(v) {
+    if (v && v !== 0 && !isNaN(v)) {
+        return v.toLocaleString('pt-BR', {style:'currency', currency:'BRL'});
     }
-    
-    var totalRealizado = 0;
-    for (var i = 0; i < filtrados.length; i++) {
-        if (filtrados[i].status === 'pago' && filtrados[i].data && filtrados[i].data !== '' && isDataValida(filtrados[i].data)) {
-            totalRealizado += filtrados[i].realizado || 0;
+    return 'R$ 0,00';
+}
+
+function formatarDiferenca(diferenca, valorPrevisto) {
+    if (diferenca === 0 || isNaN(diferenca) || valorPrevisto === 0) return 'R$ 0,00 (0%)';
+    var perc = (Math.abs(diferenca) / valorPrevisto) * 100;
+    var sinal = diferenca > 0 ? '+' : '-';
+    var classe = diferenca > 0 ? 'diferenca-acima' : 'diferenca-abaixo';
+    return '<span class="' + classe + '">' + sinal + ' ' + formatar(Math.abs(diferenca)) + ' (' + perc.toFixed(1) + '%)</span>';
+}
+
+function formatarDiferencaTexto(diferenca, valorPrevisto) {
+    if (diferenca === 0 || isNaN(diferenca) || valorPrevisto === 0) return 'R$ 0,00 (0%)';
+    var perc = (Math.abs(diferenca) / valorPrevisto) * 100;
+    var sinal = diferenca > 0 ? '+' : '';
+    return sinal + ' ' + formatar(Math.abs(diferenca)) + ' (' + perc.toFixed(1) + '%)';
+}
+
+function calcularFatorEmpresas() {
+    var totalPercentual = 0;
+    for (var emp in empresasSelecionadas) {
+        if (empresasSelecionadas[emp]) {
+            totalPercentual += percentuaisEmpresas[emp];
         }
     }
+    if (totalPercentual === 0) return 1;
+    return totalPercentual;
+}
+
+function getFilteredDataByEmpresa(dadosOriginais) {
+    var fator = calcularFatorEmpresas();
+    if (fator === 0 || fator === 1) return dadosOriginais;
     
-    var valorEmpresa = totalRealizado * fator;
-    return valorEmpresa;
+    return dadosOriginais.map(function(item) {
+        var novoItem = JSON.parse(JSON.stringify(item));
+        novoItem.reaj = (item.reaj || 0) * fator;
+        novoItem.realizado = (item.realizado || 0) * fator;
+        novoItem.despesa = (item.despesa || 0) * fator;
+        novoItem.totalLiq = item.totalLiq * fator;
+        novoItem.acumulado = (item.acumulado || 0) * fator;
+        novoItem.previsto = (item.previsto || 0) * fator;
+        return novoItem;
+    });
+}
+
+function getMedicaoNumByMes(mesAno) {
+    for (var i = 0; i < dados.length; i++) {
+        if (dados[i].mes === mesAno) {
+            return parseInt(dados[i].med);
+        }
+    }
+    return null;
 }
 
 function somarRealizadoPagoAteMedicao(medNum) {
@@ -1038,28 +1382,14 @@ function getValorDesconto(item) {
 
 function setChartType(type) {
     currentChartType = type;
-    document.querySelectorAll('.chart-type-btn').forEach(btn => {
-        if(btn.dataset.chart === type) {
+    document.querySelectorAll('.chart-type-btn').forEach(function(btn) {
+        if (btn.dataset.chart === type) {
             btn.classList.add('active');
         } else {
             btn.classList.remove('active');
         }
     });
     atualizarGraficoFinanceiro();
-}
-
-function getDescontoPorNDG(ndg) {
-    if (ndg >= 90) return 0;
-    if (ndg >= 80) return 2.5;
-    if (ndg >= 70) return 5;
-    if (ndg >= 50) return 7.5;
-    return 10;
-}
-
-function getClassePorNDG(ndg) {
-    if (ndg >= 90) return 'ndg-good';
-    if (ndg >= 70) return 'ndg-warning';
-    return 'ndg-danger';
 }
 
 function aplicarMascaraData(input) {
@@ -1077,180 +1407,6 @@ function aplicarMascaraData(input) {
     input.value = valor;
 }
 
-function isDataValida(dataStr) {
-    if (!dataStr || dataStr.length !== 10) return false;
-    var partes = dataStr.split('/');
-    if (partes.length !== 3) return false;
-    var dia = parseInt(partes[0], 10);
-    var mes = parseInt(partes[1], 10);
-    var ano = parseInt(partes[2], 10);
-    if (isNaN(dia) || isNaN(mes) || isNaN(ano)) return false;
-    if (dia < 1 || dia > 31) return false;
-    if (mes < 1 || mes > 12) return false;
-    if (ano < 2025 || ano > 2030) return false;
-    return true;
-}
-
-function calcularFatorEmpresas() {
-    var totalPercentual = 0;
-    for (var emp in empresasSelecionadas) {
-        if (empresasSelecionadas[emp]) {
-            totalPercentual += percentuaisEmpresas[emp];
-        }
-    }
-    if (totalPercentual === 0) return 1;
-    return totalPercentual;
-}
-
-function getValorPrevistoProporcional() {
-    var fator = calcularFatorEmpresas();
-    return valorPrevistoMensal * fator;
-}
-
-function getFilteredDataByEmpresa(dadosOriginais) {
-    var fator = calcularFatorEmpresas();
-    if (fator === 0 || fator === 1) return dadosOriginais;
-    
-    return dadosOriginais.map(function(item) {
-        var novoItem = JSON.parse(JSON.stringify(item));
-        novoItem.reaj = item.reaj * fator;
-        novoItem.realizado = item.realizado * fator;
-        novoItem.despesa = (item.despesa || 0) * fator;
-        novoItem.totalLiq = item.totalLiq * fator;
-        novoItem.acumulado = item.acumulado * fator;
-        novoItem.previsto = item.previsto * fator;
-        return novoItem;
-    });
-}
-
-function getMedicaoNumByMes(mesAno) {
-    for (var i = 0; i < dados.length; i++) {
-        if (dados[i].mes === mesAno) {
-            return parseInt(dados[i].med);
-        }
-    }
-    return null;
-}
-
-function calcularTotalAcumuladoPagoAteMedicao(medicaoNum) {
-    var total = 0;
-    for (var i = 0; i < dados.length; i++) {
-        var medAtual = parseInt(dados[i].med);
-        var temDataValida = dados[i].data && dados[i].data !== '' && isDataValida(dados[i].data);
-        var isPago = dados[i].status === 'pago';
-        if (medAtual <= medicaoNum && temDataValida && isPago) {
-            total += dados[i].totalLiq || 0;
-        }
-    }
-    return total;
-}
-
-function calcularTotalAcumuladoPagoAteAno(ano) {
-    var ultimaMedNoAno = 0;
-    for (var i = 0; i < dados.length; i++) {
-        var anoMed = parseInt(dados[i].mes.split('/')[1]);
-        var medNum = parseInt(dados[i].med);
-        if (anoMed == ano && medNum > ultimaMedNoAno) {
-            ultimaMedNoAno = medNum;
-        }
-    }
-    return calcularTotalAcumuladoPagoAteMedicao(ultimaMedNoAno);
-}
-
-function toggleEmpresa(botao) {
-    var empresa = botao.getAttribute('data-empresa');
-    if (empresasSelecionadas[empresa]) {
-        delete empresasSelecionadas[empresa];
-        botao.classList.remove('selecionado');
-    } else {
-        empresasSelecionadas[empresa] = true;
-        botao.classList.add('selecionado');
-    }
-    atualizarCardsEmpresas();
-    atualizarTotalSelecionado();
-    aplicarFiltros();
-}
-
-function atualizarCardsEmpresas() {
-    var totalRealizadoAcumulado = calcularTotalComFiltros();
-    
-    for (var empresa in percentuaisEmpresas) {
-        var valor = totalRealizadoAcumulado * percentuaisEmpresas[empresa];
-        var el = document.getElementById('valor' + empresa);
-        var pctEl = document.getElementById('pct' + empresa);
-        if (el) {
-            if (empresasSelecionadas[empresa]) {
-                el.innerHTML = formatar(valor);
-            } else {
-                el.innerHTML = '🔒 ' + formatar(valor);
-            }
-        }
-        if (pctEl) {
-            var totalContratoEmpresa = totalContrato * percentuaisEmpresas[empresa];
-            var pctReal = totalContratoEmpresa > 0 ? (valor / totalContratoEmpresa * 100) : 0;
-            pctEl.innerHTML = pctReal.toFixed(1) + '% do Contrato (filtrado)';
-        }
-    }
-}
-
-function calcularTotalComFiltros() {
-    var medSelecionados = obterValoresDropdown('dropdownMedicao');
-    var perSelecionados = obterValoresDropdown('dropdownPeriodo');
-    var anoSelecionados = obterValoresDropdown('dropdownAno');
-    var stSelecionados = obterValoresDropdown('dropdownStatus');
-    var mostrar = document.getElementById('mostrarVazios') ? document.getElementById('mostrarVazios').checked : false;
-    
-    var filtrados = dados.slice();
-    if (!mostrar) filtrados = filtrados.filter(function(d) { return d.data && d.data !== '' && isDataValida(d.data); });
-    if (medSelecionados.length > 0) filtrados = filtrados.filter(function(d) { return medSelecionados.indexOf(d.med) !== -1; });
-    if (perSelecionados.length > 0) filtrados = filtrados.filter(function(d) { return perSelecionados.indexOf(d.mes) !== -1; });
-    if (anoSelecionados.length > 0) filtrados = filtrados.filter(function(d) { return anoSelecionados.indexOf(extrairAno(d.mes)) !== -1; });
-    if (stSelecionados.length > 0) {
-        var stNorm = stSelecionados.map(function(s) { return s === 'não_iniciado' ? 'nao_iniciado' : s; });
-        filtrados = filtrados.filter(function(d) { return stNorm.indexOf(d.status) !== -1; });
-    }
-    
-    var total = 0;
-    for (var i = 0; i < filtrados.length; i++) {
-        if (filtrados[i].status === 'pago' && filtrados[i].data && filtrados[i].data !== '' && isDataValida(filtrados[i].data)) {
-            total += filtrados[i].realizado || 0;
-        }
-    }
-    return total;
-}
-
-function atualizarTotalSelecionado() {
-    var totalRealizadoAcumulado = calcularTotalComFiltros();
-    
-    var totalPercentual = 0;
-    for (var emp in empresasSelecionadas) {
-        if (empresasSelecionadas[emp]) {
-            totalPercentual += percentuaisEmpresas[emp];
-        }
-    }
-    
-    var totalSelecionado = totalRealizadoAcumulado * totalPercentual;
-    var percentualContrato = (totalPercentual * 100);
-    
-    var elTotalSelecionado = document.getElementById('totalSelecionado');
-    if (elTotalSelecionado) {
-        if (totalPercentual === 0) {
-            elTotalSelecionado.innerHTML = '💰 Total do Contrato (nenhuma empresa selecionada): ' + formatar(totalRealizadoAcumulado);
-        } else {
-            elTotalSelecionado.innerHTML = '💰 Total Selecionado: ' + formatar(totalSelecionado) + ' (' + percentualContrato.toFixed(1) + '% do Contrato)';
-        }
-    }
-}
-
-var statusOptions = [
-    {v:"entregue", l:"Entregue"},
-    {v:"aprovado", l:"Aprovado"},
-    {v:"analise", l:"Em Análise"},
-    {v:"pagamento", l:"Em Pagamento"},
-    {v:"pago", l:"Pago"},
-    {v:"nao_iniciado", l:"Não Iniciado"}
-];
-
 function mostrarStatus(mensagem, sucesso) {
     var statusDiv = document.getElementById('saveStatus');
     statusDiv.textContent = (sucesso ? '✅ ' : '❌ ') + mensagem;
@@ -1259,85 +1415,43 @@ function mostrarStatus(mensagem, sucesso) {
     setTimeout(function() { statusDiv.style.display = 'none'; }, 2000);
 }
 
-function extrairAno(mesAno) {
-    var partes = mesAno.split('/');
-    return partes[1];
-}
-
-function formatar(v) {
-    if (v && v !== 0 && !isNaN(v)) {
-        return v.toLocaleString('pt-BR', {style:'currency', currency:'BRL'});
-    }
-    return 'R$ 0,00';
-}
-
-function formatarDiferenca(diferenca, valorPrevisto) {
-    if (diferenca === 0 || isNaN(diferenca) || valorPrevisto === 0) return 'R$ 0,00 (0%)';
-    var perc = (Math.abs(diferenca) / valorPrevisto) * 100;
-    var sinal = diferenca > 0 ? '+' : '-';
-    var classe = diferenca > 0 ? 'diferenca-acima' : 'diferenca-abaixo';
-    return '<span class="' + classe + '">' + sinal + ' ' + formatar(Math.abs(diferenca)) + ' (' + perc.toFixed(1) + '%)</span>';
-}
-
-function formatarDiferencaTexto(diferenca, valorPrevisto) {
-    if (diferenca === 0 || isNaN(diferenca) || valorPrevisto === 0) return 'R$ 0,00 (0%)';
-    var perc = (Math.abs(diferenca) / valorPrevisto) * 100;
-    var sinal = diferenca > 0 ? '+' : '';
-    return sinal + ' ' + formatar(Math.abs(diferenca)) + ' (' + perc.toFixed(1) + '%)';
-}
-
+// ============================================================
+// 📊 GERAR DADOS COM VALORES DO PDF
+// ============================================================
 function gerarDadosIniciais() {
     var meses = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
     var dadosTemp = [];
     var ano = 2025;
-    var idx = 8;
-    
-    var valoresBase = {
-        1: { reaj: 0, status: "pago", data: "30/09/2025", realizado: 1888413.42, ndg: 85, despesa: 50000, obs: "Primeira medição" },
-        2: { reaj: 0, status: "pago", data: "31/10/2025", realizado: 1713422.19, ndg: 92, despesa: 45000, obs: "" },
-        3: { reaj: 57428.89, status: "pago", data: "30/11/2025", realizado: 1590289.17, ndg: 85, despesa: 55000, obs: "" },
-        4: { reaj: 55024.77, status: "pago", data: "31/12/2025", realizado: 1524232.70, ndg: 88, despesa: 60000, obs: "Medição com reajuste" },
-        5: { reaj: 51897.21, status: "pago", data: "31/01/2026", realizado: 1437596.56, ndg: 75, despesa: 70000, obs: "" },
-        6: { reaj: 0, status: "pago", data: "01/02/2026", realizado: 1437596.56, ndg: 72, despesa: 68000, obs: "" },
-        7: { reaj: 0, status: "pago", data: "01/03/2026", realizado: 1437596.56, ndg: 78, despesa: 62000, obs: "" },
-        8: { reaj: 0, status: "pago", data: "04/04/2026", realizado: 1437596.56, ndg: 78, despesa: 58000, obs: "" },
-        9: { reaj: 52345.67, status: "pago", data: "05/05/2026", realizado: 1450000.00, ndg: 82, despesa: 54000, obs: "" },
-        10: { reaj: 0, status: "pago", data: "06/06/2026", realizado: 1480000.00, ndg: 90, despesa: 49000, obs: "Alta performance" },
-        11: { reaj: 0, status: "aprovado", data: "07/07/2026", realizado: 1465000.00, ndg: 87, despesa: 51000, obs: "" },
-        12: { reaj: 49876.54, status: "aprovado", data: "08/08/2026", realizado: 1478000.00, ndg: 80, despesa: 53000, obs: "" },
-        13: { reaj: 0, status: "analise", data: "09/09/2026", realizado: 1420000.00, ndg: 68, despesa: 72000, obs: "Aguardando análise" },
-        14: { reaj: 0, status: "analise", data: "10/10/2026", realizado: 1405000.00, ndg: 65, despesa: 75000, obs: "" },
-        15: { reaj: 51234.89, status: "entregue", data: "11/11/2026", realizado: 1440000.00, ndg: 76, despesa: 59000, obs: "Documentação entregue" },
-        16: { reaj: 0, status: "entregue", data: "12/12/2026", realizado: 1410000.00, ndg: 73, despesa: 63000, obs: "" },
-        17: { reaj: 0, status: "pagamento", data: "13/01/2027", realizado: 1430000.00, ndg: 79, despesa: 56000, obs: "Em processo de pagamento" },
-        18: { reaj: 48765.43, status: "pagamento", data: "14/02/2027", realizado: 1425000.00, ndg: 77, despesa: 58000, obs: "" },
-        19: { reaj: 0, status: "nao_iniciado", data: "", realizado: 0, ndg: 0, despesa: 0, obs: "Não iniciado" },
-        20: { reaj: 0, status: "nao_iniciado", data: "", realizado: 0, ndg: 0, despesa: 0, obs: "" }
-    };
+    var idx = 8; // Começa em setembro
     
     for (var c = 1; c <= 60; c++) {
         var mesAno = meses[idx] + "/" + ano;
         var reaj = 0, status = "nao_iniciado", obs = "", dataEntrega = "", realizado = 0, ndg = 0, despesa = 0;
         
-        if (valoresBase[c]) {
-            reaj = valoresBase[c].reaj;
-            status = valoresBase[c].status;
-            dataEntrega = valoresBase[c].data;
-            realizado = valoresBase[c].realizado;
-            ndg = valoresBase[c].ndg;
-            despesa = valoresBase[c].despesa;
-            obs = valoresBase[c].obs || "";
+        // Verifica se tem dados do PDF para esta medição
+        var dadoPDF = dadosPDF.find(function(d) { return parseInt(d.med) === c; });
+        
+        if (dadoPDF) {
+            reaj = dadoPDF.reaj || 0;
+            status = dadoPDF.status || "nao_iniciado";
+            dataEntrega = dadoPDF.data || "";
+            realizado = dadoPDF.realizado || 0;
+            ndg = dadoPDF.ndg || 0;
+            despesa = dadoPDF.despesa || 0;
+            obs = dadoPDF.obs || "";
         } else {
-            var random = Math.random();
-            if (random < 0.5) {
-                status = ["pago", "aprovado", "analise", "entregue", "pagamento"][Math.floor(Math.random() * 5)];
-                var mesAtual = c - 1;
-                var dia = String(Math.floor(Math.random() * 28) + 1).padStart(2, '0');
-                dataEntrega = dia + "/" + mesAno.split('/')[0].toUpperCase() + "/" + mesAno.split('/')[1];
-                realizado = valorPrevistoMensal * (0.85 + Math.random() * 0.3);
-                ndg = Math.floor(Math.random() * 40) + 60;
-                despesa = Math.floor(Math.random() * 30000) + 30000;
-                reaj = Math.random() > 0.7 ? Math.floor(Math.random() * 60000) : 0;
+            // Para medições além da 12, gerar aleatório ou manter como não iniciado
+            if (c <= 18) {
+                var rand = Math.random();
+                if (rand < 0.4) {
+                    status = ["pago", "aprovado", "analise", "entregue", "pagamento"][Math.floor(Math.random() * 5)];
+                    var dia = String(Math.floor(Math.random() * 28) + 1).padStart(2, '0');
+                    dataEntrega = dia + "/" + mesAno.split('/')[0].toUpperCase() + "/" + mesAno.split('/')[1];
+                    realizado = valorPrevistoMensal * (0.85 + Math.random() * 0.3);
+                    ndg = Math.floor(Math.random() * 40) + 60;
+                    despesa = Math.floor(Math.random() * 30000) + 30000;
+                    reaj = Math.random() > 0.7 ? Math.floor(Math.random() * 60000) : 0;
+                }
             }
         }
         
@@ -1360,6 +1474,7 @@ function gerarDadosIniciais() {
         if (idx >= 12) { idx = 0; ano++; }
     }
     
+    // Calcular acumulado
     var somaAcumulada = 0;
     for (var i = 0; i < dadosTemp.length; i++) {
         if (dadosTemp[i].data && dadosTemp[i].data !== '' && isDataValida(dadosTemp[i].data)) {
@@ -1371,6 +1486,9 @@ function gerarDadosIniciais() {
     return dadosTemp;
 }
 
+// ============================================================
+// 📊 FUNÇÕES DE CARREGAMENTO E INICIALIZAÇÃO
+// ============================================================
 function carregarDados() {
     var salvos = localStorage.getItem('medições_dados_v9_final');
     if (salvos) {
@@ -1402,72 +1520,269 @@ function carregarDados() {
         }
     } else {
         dados = gerarDadosIniciais();
+        localStorage.setItem('medições_dados_v9_final', JSON.stringify(dados));
         mostrarStatus('Dados iniciais carregados!', true);
     }
+    
     initSelects();
+    document.querySelectorAll('.empresa-btn').forEach(function(btn) {
+        var empresa = btn.getAttribute('data-empresa');
+        empresasSelecionadas[empresa] = true;
+        btn.classList.add('selecionado');
+    });
     atualizarCardsEmpresas();
     atualizarTotalSelecionado();
     aplicarFiltros();
 }
 
-function salvarTodos() {
-    for (var i = 0; i < dados.length; i++) {
-        var med = dados[i].med;
-        var dataInput = document.getElementById('data_' + med);
-        var reajInput = document.getElementById('reaj_' + med);
-        var ndgInput = document.getElementById('ndg_' + med);
-        var statusSelect = document.getElementById('status_' + med);
-        var obsInput = document.getElementById('obs_' + med);
-        var realizadoInput = document.getElementById('realizado_' + med);
-        var despesaInput = document.getElementById('despesa_' + med);
-        
-        if (reajInput) {
-            var dataValue = dataInput ? dataInput.value : '';
-            dados[i].data = dataValue;
-            
-            var temDataValida = dataValue && dataValue !== '' && isDataValida(dataValue);
-            
-            if (!temDataValida) {
-                dados[i].reaj = 0;
-                dados[i].realizado = 0;
-                dados[i].despesa = 0;
-                dados[i].ndg = 0;
-                dados[i].status = 'nao_iniciado';
-                dados[i].obs = obsInput ? obsInput.value : '';
-            } else {
-                dados[i].reaj = parseFloat(reajInput.value.replace(/\./g,'').replace(',','.')) || 0;
-                dados[i].status = statusSelect ? statusSelect.value : dados[i].status;
-                dados[i].obs = obsInput ? obsInput.value : '';
-                var realizado = parseFloat(realizadoInput.value.replace(/\./g,'').replace(',','.')) || 0;
-                dados[i].realizado = (realizado === 0) ? valorPrevistoMensal : realizado;
-                dados[i].ndg = ndgInput ? parseInt(ndgInput.value) || 100 : 100;
-                dados[i].ndg = Math.min(100, Math.max(0, dados[i].ndg));
-                var despesa = parseFloat(despesaInput.value.replace(/\./g,'').replace(',','.')) || 0;
-                dados[i].despesa = despesa;
-            }
-            dados[i].totalLiq = dados[i].previsto + dados[i].reaj;
+// ============================================================
+// 📊 FUNÇÕES DE DROPDOWN
+// ============================================================
+function toggleDropdown(id) {
+    var menu = document.getElementById(id);
+    var arrow = document.getElementById('arrow' + id.charAt(0).toUpperCase() + id.slice(1));
+    if (menu) {
+        var isOpen = menu.classList.toggle('open');
+        if (arrow) {
+            arrow.classList.toggle('open');
         }
+        document.querySelectorAll('.dropdown-menu').forEach(function(el) {
+            if (el.id !== id) {
+                el.classList.remove('open');
+                var arrowId = 'arrow' + el.id.charAt(0).toUpperCase() + el.id.slice(1);
+                var arrowEl = document.getElementById(arrowId);
+                if (arrowEl) arrowEl.classList.remove('open');
+            }
+        });
     }
-    
-    var dadosOrdenados = [...dados].sort(function(a, b) {
-        return parseInt(a.med) - parseInt(b.med);
+}
+
+function filtrarDropdown(dropdownId, searchTerm) {
+    var container = document.getElementById(dropdownId);
+    var items = container.querySelectorAll('.option-item:not(.select-all)');
+    var term = searchTerm.toLowerCase();
+    items.forEach(function(item) {
+        var label = item.querySelector('.label-text');
+        if (label) {
+            var text = label.textContent.toLowerCase();
+            item.style.display = text.includes(term) ? 'flex' : 'none';
+        }
     });
-    var somaAcumulada = 0;
-    for (var i = 0; i < dadosOrdenados.length; i++) {
-        var temDataValida = dadosOrdenados[i].data && dadosOrdenados[i].data !== '' && isDataValida(dadosOrdenados[i].data);
-        if (temDataValida) {
-            somaAcumulada += dadosOrdenados[i].totalLiq;
-        }
-        for (var j = 0; j < dados.length; j++) {
-            if (parseInt(dados[j].med) === parseInt(dadosOrdenados[i].med)) {
-                dados[j].acumulado = somaAcumulada;
-                break;
+}
+
+function toggleAllOptions(dropdownId) {
+    var container = document.getElementById(dropdownId);
+    var checkboxes = container.querySelectorAll('.option-item:not(.select-all) input[type="checkbox"]');
+    var selectAll = container.querySelector('.select-all input[type="checkbox"]');
+    var allChecked = true;
+    checkboxes.forEach(function(cb) {
+        if (!cb.checked) allChecked = false;
+    });
+    checkboxes.forEach(function(cb) {
+        cb.checked = !allChecked;
+        cb.dispatchEvent(new Event('change'));
+    });
+    if (selectAll) {
+        selectAll.checked = !allChecked;
+    }
+    aplicarFiltros();
+}
+
+function obterValoresDropdown(dropdownId) {
+    var container = document.getElementById(dropdownId);
+    if (!container) return [];
+    var checkboxes = container.querySelectorAll('.option-item:not(.select-all) input[type="checkbox"]:checked');
+    var valores = [];
+    checkboxes.forEach(function(cb) {
+        valores.push(cb.value);
+    });
+    return valores;
+}
+
+function atualizarBadges() {
+    var dropdowns = [
+        {id: 'dropdownMedicao', badge: 'badgeMedicao'},
+        {id: 'dropdownPeriodo', badge: 'badgePeriodo'},
+        {id: 'dropdownAno', badge: 'badgeAno'},
+        {id: 'dropdownStatus', badge: 'badgeStatus'}
+    ];
+    for (var i = 0; i < dropdowns.length; i++) {
+        var valores = obterValoresDropdown(dropdowns[i].id);
+        var badge = document.getElementById(dropdowns[i].badge);
+        if (badge) {
+            var total = document.getElementById(dropdowns[i].id).querySelectorAll('.option-item:not(.select-all)').length;
+            if (valores.length === 0 || valores.length === total) {
+                badge.textContent = '0';
+                badge.classList.remove('active');
+            } else {
+                badge.textContent = valores.length;
+                badge.classList.add('active');
             }
         }
     }
+}
+
+function initDropdowns() {
+    var optionsMed = document.getElementById('optionsMedicao');
+    if (optionsMed) {
+        optionsMed.innerHTML = '';
+        for (var i = 0; i < dados.length; i++) {
+            var div = document.createElement('div');
+            div.className = 'option-item';
+            div.innerHTML = '<input type="checkbox" value="' + dados[i].med + '" onchange="aplicarFiltros()"> <span class="label-text">Med ' + dados[i].med + '</span>';
+            optionsMed.appendChild(div);
+        }
+    }
     
-    localStorage.setItem('medições_dados_v9_final', JSON.stringify(dados));
-    mostrarStatus('Dados salvos!', true);
+    var optionsPer = document.getElementById('optionsPeriodo');
+    if (optionsPer) {
+        optionsPer.innerHTML = '';
+        var mesesUnicos = [];
+        for (var i = 0; i < dados.length; i++) {
+            if (mesesUnicos.indexOf(dados[i].mes) === -1) {
+                mesesUnicos.push(dados[i].mes);
+            }
+        }
+        mesesUnicos.sort(function(a, b) {
+            var aAno = parseInt(a.split('/')[1]);
+            var bAno = parseInt(b.split('/')[1]);
+            if (aAno !== bAno) return aAno - bAno;
+            var meses = {jan:1, fev:2, mar:3, abr:4, mai:5, jun:6, jul:7, ago:8, set:9, out:10, nov:11, dez:12};
+            var aMes = meses[a.split('/')[0]];
+            var bMes = meses[b.split('/')[0]];
+            return aMes - bMes;
+        });
+        for (var i = 0; i < mesesUnicos.length; i++) {
+            var div = document.createElement('div');
+            div.className = 'option-item';
+            div.innerHTML = '<input type="checkbox" value="' + mesesUnicos[i] + '" onchange="aplicarFiltros()"> <span class="label-text">' + mesesUnicos[i] + '</span>';
+            optionsPer.appendChild(div);
+        }
+    }
+    
+    var optionsAno = document.getElementById('optionsAno');
+    if (optionsAno) {
+        optionsAno.innerHTML = '';
+        var anos = ['2025','2026','2027','2028','2029','2030'];
+        for (var i = 0; i < anos.length; i++) {
+            var div = document.createElement('div');
+            div.className = 'option-item';
+            div.innerHTML = '<input type="checkbox" value="' + anos[i] + '" onchange="aplicarFiltros()"> <span class="label-text">' + anos[i] + '</span>';
+            optionsAno.appendChild(div);
+        }
+    }
+    
+    var optionsStatus = document.getElementById('optionsStatus');
+    if (optionsStatus) {
+        optionsStatus.innerHTML = '';
+        var statusList = [
+            {v:'entregue', l:'Entregue'},
+            {v:'aprovado', l:'Aprovado'},
+            {v:'analise', l:'Em Análise'},
+            {v:'pagamento', l:'Em Pagamento'},
+            {v:'pago', l:'Pago'},
+            {v:'nao_iniciado', l:'Não Iniciado'}
+        ];
+        for (var i = 0; i < statusList.length; i++) {
+            var div = document.createElement('div');
+            div.className = 'option-item';
+            div.innerHTML = '<input type="checkbox" value="' + statusList[i].v + '" onchange="aplicarFiltros()"> <span class="label-text">' + statusList[i].l + '</span>';
+            optionsStatus.appendChild(div);
+        }
+    }
+    
+    atualizarBadges();
+}
+
+function initSelects() {
+    initDropdowns();
+}
+
+// ============================================================
+// 📊 FUNÇÕES DE FILTRO E RENDERIZAÇÃO
+// ============================================================
+function calcularTotalComFiltros() {
+    var medSelecionados = obterValoresDropdown('dropdownMedicao');
+    var perSelecionados = obterValoresDropdown('dropdownPeriodo');
+    var anoSelecionados = obterValoresDropdown('dropdownAno');
+    var stSelecionados = obterValoresDropdown('dropdownStatus');
+    var mostrar = document.getElementById('mostrarVazios') ? document.getElementById('mostrarVazios').checked : false;
+    
+    var filtrados = dados.slice();
+    if (!mostrar) filtrados = filtrados.filter(function(d) { return d.data && d.data !== '' && isDataValida(d.data); });
+    if (medSelecionados.length > 0) filtrados = filtrados.filter(function(d) { return medSelecionados.indexOf(d.med) !== -1; });
+    if (perSelecionados.length > 0) filtrados = filtrados.filter(function(d) { return perSelecionados.indexOf(d.mes) !== -1; });
+    if (anoSelecionados.length > 0) filtrados = filtrados.filter(function(d) { return anoSelecionados.indexOf(extrairAno(d.mes)) !== -1; });
+    if (stSelecionados.length > 0) {
+        var stNorm = stSelecionados.map(function(s) { return s === 'não_iniciado' ? 'nao_iniciado' : s; });
+        filtrados = filtrados.filter(function(d) { return stNorm.indexOf(d.status) !== -1; });
+    }
+    
+    var total = 0;
+    for (var i = 0; i < filtrados.length; i++) {
+        if (filtrados[i].status === 'pago' && filtrados[i].data && filtrados[i].data !== '' && isDataValida(filtrados[i].data)) {
+            total += filtrados[i].realizado || 0;
+        }
+    }
+    return total;
+}
+
+function atualizarCardsEmpresas() {
+    var totalRealizadoAcumulado = calcularTotalComFiltros();
+    
+    for (var empresa in percentuaisEmpresas) {
+        var valor = totalRealizadoAcumulado * percentuaisEmpresas[empresa];
+        var el = document.getElementById('valor' + empresa);
+        var pctEl = document.getElementById('pct' + empresa);
+        if (el) {
+            if (empresasSelecionadas[empresa]) {
+                el.innerHTML = formatar(valor);
+            } else {
+                el.innerHTML = '🔒 ' + formatar(valor);
+            }
+        }
+        if (pctEl) {
+            var totalContratoEmpresa = totalContrato * percentuaisEmpresas[empresa];
+            var pctReal = totalContratoEmpresa > 0 ? (valor / totalContratoEmpresa * 100) : 0;
+            pctEl.innerHTML = pctReal.toFixed(1) + '% do Contrato (filtrado)';
+        }
+    }
+}
+
+function atualizarTotalSelecionado() {
+    var totalRealizadoAcumulado = calcularTotalComFiltros();
+    
+    var totalPercentual = 0;
+    for (var emp in empresasSelecionadas) {
+        if (empresasSelecionadas[emp]) {
+            totalPercentual += percentuaisEmpresas[emp];
+        }
+    }
+    
+    var totalSelecionado = totalRealizadoAcumulado * totalPercentual;
+    var percentualContrato = (totalPercentual * 100);
+    
+    var elTotalSelecionado = document.getElementById('totalSelecionado');
+    if (elTotalSelecionado) {
+        if (totalPercentual === 0) {
+            elTotalSelecionado.innerHTML = '💰 Total do Contrato (nenhuma empresa selecionada): ' + formatar(totalRealizadoAcumulado);
+        } else {
+            elTotalSelecionado.innerHTML = '💰 Total Selecionado: ' + formatar(totalSelecionado) + ' (' + percentualContrato.toFixed(1) + '% do Contrato)';
+        }
+    }
+}
+
+function toggleEmpresa(botao) {
+    var empresa = botao.getAttribute('data-empresa');
+    if (empresasSelecionadas[empresa]) {
+        delete empresasSelecionadas[empresa];
+        botao.classList.remove('selecionado');
+    } else {
+        empresasSelecionadas[empresa] = true;
+        botao.classList.add('selecionado');
+    }
+    atualizarCardsEmpresas();
+    atualizarTotalSelecionado();
     aplicarFiltros();
 }
 
@@ -1804,7 +2119,7 @@ function atualizarGraficoAcumulado(filtrados) {
     
     document.getElementById('graficoLegenda').innerHTML = legendaTexto;
     
-    var maxValor = Math.max(...dadosRealizado, ...dadosPrevisto, ...dadosRealizadoPago, valorPrevistoMensal);
+    var maxValor = Math.max.apply(null, dadosRealizado.concat(dadosPrevisto, dadosRealizadoPago, [valorPrevistoMensal]));
     var maxValorArredondado = Math.ceil(maxValor / 1000000) * 1000000;
     if (maxValorArredondado === 0) maxValorArredondado = 2000000;
     
@@ -1914,7 +2229,7 @@ function renderizarTabela(filtrados) {
     
     tbody.innerHTML = '';
     if (filtrados.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="13">Nenhum dado encontrado<\/tr>';
+        tbody.innerHTML = '<tr><td colspan="13">Nenhum dado encontrado</td></tr>';
         atualizarCards([]);
         return;
     }
@@ -2049,176 +2364,68 @@ function renderizarTabela(filtrados) {
     atualizarCards(filtrados);
 }
 
-function toggleDropdown(id) {
-    var menu = document.getElementById(id);
-    var arrow = document.getElementById('arrow' + id.charAt(0).toUpperCase() + id.slice(1));
-    if (menu) {
-        var isOpen = menu.classList.toggle('open');
-        if (arrow) {
-            arrow.classList.toggle('open');
-        }
-        document.querySelectorAll('.dropdown-menu').forEach(function(el) {
-            if (el.id !== id) {
-                el.classList.remove('open');
-                var arrowId = 'arrow' + el.id.charAt(0).toUpperCase() + el.id.slice(1);
-                var arrowEl = document.getElementById(arrowId);
-                if (arrowEl) arrowEl.classList.remove('open');
-            }
-        });
-    }
-}
-
-function filtrarDropdown(dropdownId, searchTerm) {
-    var container = document.getElementById(dropdownId);
-    var items = container.querySelectorAll('.option-item:not(.select-all)');
-    var term = searchTerm.toLowerCase();
-    items.forEach(function(item) {
-        var label = item.querySelector('.label-text');
-        if (label) {
-            var text = label.textContent.toLowerCase();
-            item.style.display = text.includes(term) ? 'flex' : 'none';
-        }
-    });
-}
-
-function toggleAllOptions(dropdownId) {
-    var container = document.getElementById(dropdownId);
-    var checkboxes = container.querySelectorAll('.option-item:not(.select-all) input[type="checkbox"]');
-    var selectAll = container.querySelector('.select-all input[type="checkbox"]');
-    var allChecked = true;
-    checkboxes.forEach(function(cb) {
-        if (!cb.checked) allChecked = false;
-    });
-    checkboxes.forEach(function(cb) {
-        cb.checked = !allChecked;
-        cb.dispatchEvent(new Event('change'));
-    });
-    if (selectAll) {
-        selectAll.checked = !allChecked;
-    }
-    aplicarFiltros();
-}
-
-function obterValoresDropdown(dropdownId) {
-    var container = document.getElementById(dropdownId);
-    if (!container) return [];
-    var checkboxes = container.querySelectorAll('.option-item:not(.select-all) input[type="checkbox"]:checked');
-    var valores = [];
-    checkboxes.forEach(function(cb) {
-        valores.push(cb.value);
-    });
-    return valores;
-}
-
-function atualizarBadges() {
-    var dropdowns = [
-        {id: 'dropdownMedicao', badge: 'badgeMedicao'},
-        {id: 'dropdownPeriodo', badge: 'badgePeriodo'},
-        {id: 'dropdownAno', badge: 'badgeAno'},
-        {id: 'dropdownStatus', badge: 'badgeStatus'}
-    ];
-    for (var i = 0; i < dropdowns.length; i++) {
-        var valores = obterValoresDropdown(dropdowns[i].id);
-        var badge = document.getElementById(dropdowns[i].badge);
-        if (badge) {
-            var total = document.getElementById(dropdowns[i].id).querySelectorAll('.option-item:not(.select-all)').length;
-            if (valores.length === 0 || valores.length === total) {
-                badge.textContent = '0';
-                badge.classList.remove('active');
+// ============================================================
+// 📊 FUNÇÕES DE AÇÃO (Salvar, Limpar, PDF, Apresentação)
+// ============================================================
+function salvarTodos() {
+    for (var i = 0; i < dados.length; i++) {
+        var med = dados[i].med;
+        var dataInput = document.getElementById('data_' + med);
+        var reajInput = document.getElementById('reaj_' + med);
+        var ndgInput = document.getElementById('ndg_' + med);
+        var statusSelect = document.getElementById('status_' + med);
+        var obsInput = document.getElementById('obs_' + med);
+        var realizadoInput = document.getElementById('realizado_' + med);
+        var despesaInput = document.getElementById('despesa_' + med);
+        
+        if (reajInput) {
+            var dataValue = dataInput ? dataInput.value : '';
+            dados[i].data = dataValue;
+            
+            var temDataValida = dataValue && dataValue !== '' && isDataValida(dataValue);
+            
+            if (!temDataValida) {
+                dados[i].reaj = 0;
+                dados[i].realizado = 0;
+                dados[i].despesa = 0;
+                dados[i].ndg = 0;
+                dados[i].status = 'nao_iniciado';
+                dados[i].obs = obsInput ? obsInput.value : '';
             } else {
-                badge.textContent = valores.length;
-                badge.classList.add('active');
+                dados[i].reaj = parseFloat(reajInput.value.replace(/\./g,'').replace(',','.')) || 0;
+                dados[i].status = statusSelect ? statusSelect.value : dados[i].status;
+                dados[i].obs = obsInput ? obsInput.value : '';
+                var realizado = parseFloat(realizadoInput.value.replace(/\./g,'').replace(',','.')) || 0;
+                dados[i].realizado = (realizado === 0) ? valorPrevistoMensal : realizado;
+                dados[i].ndg = ndgInput ? parseInt(ndgInput.value) || 100 : 100;
+                dados[i].ndg = Math.min(100, Math.max(0, dados[i].ndg));
+                var despesa = parseFloat(despesaInput.value.replace(/\./g,'').replace(',','.')) || 0;
+                dados[i].despesa = despesa;
+            }
+            dados[i].totalLiq = dados[i].previsto + dados[i].reaj;
+        }
+    }
+    
+    var dadosOrdenados = [...dados].sort(function(a, b) {
+        return parseInt(a.med) - parseInt(b.med);
+    });
+    var somaAcumulada = 0;
+    for (var i = 0; i < dadosOrdenados.length; i++) {
+        var temDataValida = dadosOrdenados[i].data && dadosOrdenados[i].data !== '' && isDataValida(dadosOrdenados[i].data);
+        if (temDataValida) {
+            somaAcumulada += dadosOrdenados[i].totalLiq;
+        }
+        for (var j = 0; j < dados.length; j++) {
+            if (parseInt(dados[j].med) === parseInt(dadosOrdenados[i].med)) {
+                dados[j].acumulado = somaAcumulada;
+                break;
             }
         }
     }
-}
-
-function initDropdowns() {
-    var optionsMed = document.getElementById('optionsMedicao');
-    if (optionsMed) {
-        optionsMed.innerHTML = '';
-        for (var i = 0; i < dados.length; i++) {
-            var div = document.createElement('div');
-            div.className = 'option-item';
-            div.innerHTML = '<input type="checkbox" value="' + dados[i].med + '" onchange="aplicarFiltros()"> <span class="label-text">Med ' + dados[i].med + '</span>';
-            optionsMed.appendChild(div);
-        }
-    }
     
-    var optionsPer = document.getElementById('optionsPeriodo');
-    if (optionsPer) {
-        optionsPer.innerHTML = '';
-        var mesesUnicos = [];
-        for (var i = 0; i < dados.length; i++) {
-            if (mesesUnicos.indexOf(dados[i].mes) === -1) {
-                mesesUnicos.push(dados[i].mes);
-            }
-        }
-        mesesUnicos.sort(function(a, b) {
-            var aAno = parseInt(a.split('/')[1]);
-            var bAno = parseInt(b.split('/')[1]);
-            if (aAno !== bAno) return aAno - bAno;
-            var meses = {jan:1, fev:2, mar:3, abr:4, mai:5, jun:6, jul:7, ago:8, set:9, out:10, nov:11, dez:12};
-            var aMes = meses[a.split('/')[0]];
-            var bMes = meses[b.split('/')[0]];
-            return aMes - bMes;
-        });
-        for (var i = 0; i < mesesUnicos.length; i++) {
-            var div = document.createElement('div');
-            div.className = 'option-item';
-            div.innerHTML = '<input type="checkbox" value="' + mesesUnicos[i] + '" onchange="aplicarFiltros()"> <span class="label-text">' + mesesUnicos[i] + '</span>';
-            optionsPer.appendChild(div);
-        }
-    }
-    
-    var optionsAno = document.getElementById('optionsAno');
-    if (optionsAno) {
-        optionsAno.innerHTML = '';
-        var anos = ['2025','2026','2027','2028','2029','2030'];
-        for (var i = 0; i < anos.length; i++) {
-            var div = document.createElement('div');
-            div.className = 'option-item';
-            div.innerHTML = '<input type="checkbox" value="' + anos[i] + '" onchange="aplicarFiltros()"> <span class="label-text">' + anos[i] + '</span>';
-            optionsAno.appendChild(div);
-        }
-    }
-    
-    var optionsStatus = document.getElementById('optionsStatus');
-    if (optionsStatus) {
-        optionsStatus.innerHTML = '';
-        var statusList = [
-            {v:'entregue', l:'Entregue'},
-            {v:'aprovado', l:'Aprovado'},
-            {v:'analise', l:'Em Análise'},
-            {v:'pagamento', l:'Em Pagamento'},
-            {v:'pago', l:'Pago'},
-            {v:'nao_iniciado', l:'Não Iniciado'}
-        ];
-        for (var i = 0; i < statusList.length; i++) {
-            var div = document.createElement('div');
-            div.className = 'option-item';
-            div.innerHTML = '<input type="checkbox" value="' + statusList[i].v + '" onchange="aplicarFiltros()"> <span class="label-text">' + statusList[i].l + '</span>';
-            optionsStatus.appendChild(div);
-        }
-    }
-    
-    atualizarBadges();
-}
-
-document.addEventListener('click', function(event) {
-    var isDropdown = event.target.closest('.dropdown-group');
-    if (!isDropdown) {
-        document.querySelectorAll('.dropdown-menu').forEach(function(el) {
-            el.classList.remove('open');
-            var arrowId = 'arrow' + el.id.charAt(0).toUpperCase() + el.id.slice(1);
-            var arrowEl = document.getElementById(arrowId);
-            if (arrowEl) arrowEl.classList.remove('open');
-        });
-    }
-});
-
-function initSelects() {
-    initDropdowns();
+    localStorage.setItem('medições_dados_v9_final', JSON.stringify(dados));
+    mostrarStatus('Dados salvos!', true);
+    aplicarFiltros();
 }
 
 function aplicarFiltros() {
@@ -2295,7 +2502,7 @@ function gerarPDF() {
     var mostrar = document.getElementById('mostrarVazios') ? document.getElementById('mostrarVazios').checked : false;
     
     var filtrados = dados.slice();
-    if (!mostrar) filtrados = filtrados.filter(d => d.data && d.data !== '' && isDataValida(d.data));
+    if (!mostrar) filtrados = filtrados.filter(function(d) { return d.data && d.data !== '' && isDataValida(d.data); });
     
     if (medSelecionados.length > 0) {
         filtrados = filtrados.filter(function(d) { return medSelecionados.indexOf(d.med) !== -1; });
@@ -2314,30 +2521,31 @@ function gerarPDF() {
         filtrados = filtrados.filter(function(d) { return stNorm.indexOf(d.status) !== -1; });
     }
 
-    const fator = calcularFatorEmpresas();
+    var fator = calcularFatorEmpresas();
     if (fator > 0 && fator !== 1) filtrados = getFilteredDataByEmpresa(filtrados);
 
-    const ordenados = [...filtrados].sort((a,b) => parseInt(a.med)-parseInt(b.med));
-    const valorPrevistoProp = valorPrevistoMensal * fator;
+    var ordenados = [...filtrados].sort(function(a,b) { return parseInt(a.med)-parseInt(b.med); });
+    var valorPrevistoProp = valorPrevistoMensal * fator;
 
-    const tbody = document.getElementById('pdfTabelaBody');
+    var tbody = document.getElementById('pdfTabelaBody');
     tbody.innerHTML = '';
 
     if (ordenados.length === 0) {
         tbody.innerHTML = '<tr><td colspan="12" style="text-align:center; padding:20px;">Nenhum dado encontrado</td></tr>';
     } else {
-        for (let d of ordenados) {
-            const row = tbody.insertRow();
-            const isNaoIniciado = !d.data || d.data === '' || !isDataValida(d.data);
-            const valReal = isNaoIniciado ? 0 : ((d.realizado && d.realizado !== 0) ? d.realizado : valorPrevistoProp);
-            const dif = valReal - (isNaoIniciado ? 0 : valorPrevistoProp);
-            const valReaj = isNaoIniciado ? 0 : (d.reaj || 0) * fator;
-            const valDesp = isNaoIniciado ? 0 : (d.despesa || 0) * fator;
-            const baseDesc = (isNaoIniciado ? 0 : valorPrevistoProp) + (isNaoIniciado ? 0 : (d.reaj || 0) * fator);
-            const descPct = getDescontoPorNDG(isNaoIniciado ? 0 : (d.ndg || 100));
-            const valDesc = baseDesc * (descPct / 100);
+        for (var idx = 0; idx < ordenados.length; idx++) {
+            var d = ordenados[idx];
+            var row = tbody.insertRow();
+            var isNaoIniciado = !d.data || d.data === '' || !isDataValida(d.data);
+            var valReal = isNaoIniciado ? 0 : ((d.realizado && d.realizado !== 0) ? d.realizado : valorPrevistoProp);
+            var dif = valReal - (isNaoIniciado ? 0 : valorPrevistoProp);
+            var valReaj = isNaoIniciado ? 0 : (d.reaj || 0) * fator;
+            var valDesp = isNaoIniciado ? 0 : (d.despesa || 0) * fator;
+            var baseDesc = (isNaoIniciado ? 0 : valorPrevistoProp) + (isNaoIniciado ? 0 : (d.reaj || 0) * fator);
+            var descPct = getDescontoPorNDG(isNaoIniciado ? 0 : (d.ndg || 100));
+            var valDesc = baseDesc * (descPct / 100);
 
-            const statusMap = {
+            var statusMap = {
                 'entregue': 'Entregue',
                 'aprovado': 'Aprovado',
                 'analise': 'Em Análise',
@@ -2366,15 +2574,15 @@ function gerarPDF() {
         hour: '2-digit', minute: '2-digit'
     });
 
-    const pdfContainer = document.getElementById('pdfContainer');
-    const containerPrincipal = document.getElementById('relatorioPDF');
+    var pdfContainer = document.getElementById('pdfContainer');
+    var containerPrincipal = document.getElementById('relatorioPDF');
     
     containerPrincipal.style.display = 'none';
     pdfContainer.style.display = 'block';
 
-    setTimeout(() => {
+    setTimeout(function() {
         window.print();
-        setTimeout(() => {
+        setTimeout(function() {
             pdfContainer.style.display = 'none';
             containerPrincipal.style.display = 'block';
         }, 500);
@@ -2642,7 +2850,26 @@ function gerarApresentacao() {
     mostrarStatus('Apresentação gerada!', true);
 }
 
-carregarDados();
+// ============================================================
+// 🚀 INICIALIZAÇÃO
+// ============================================================
+// Se já estiver logado (sessão ativa), carrega os dados
+if (localStorage.getItem('sessaoAtiva') === 'true') {
+    carregarDados();
+}
+
+// Fecha dropdowns ao clicar fora
+document.addEventListener('click', function(event) {
+    var isDropdown = event.target.closest('.dropdown-group');
+    if (!isDropdown) {
+        document.querySelectorAll('.dropdown-menu').forEach(function(el) {
+            el.classList.remove('open');
+            var arrowId = 'arrow' + el.id.charAt(0).toUpperCase() + el.id.slice(1);
+            var arrowEl = document.getElementById(arrowId);
+            if (arrowEl) arrowEl.classList.remove('open');
+        });
+    }
+});
 </script>
 </body>
 </html>
