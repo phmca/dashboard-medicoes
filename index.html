@@ -953,7 +953,7 @@
         <h1>📊 Relatório de Medições</h1>
         <p class="subtitle">Controle de Medições Assessor-DNIT</p>
         
-        <form id="loginForm" onsubmit="return fazerLogin(event)" autocomplete="off"> 
+       <form id="loginForm" onsubmit="event.preventDefault(); fazerLogin(event); return false;">
             <!-- Campo Usuário -->
             <div class="form-group">
                 <label for="username">👤 Usuário</label>
@@ -1316,6 +1316,13 @@ pb.autoCancellation(false);
 // ============================================================
 // 🔐 FUNÇÕES DE LOGIN
 // ============================================================
+
+    document.addEventListener('DOMContentLoaded', function() {
+    var form = document.getElementById('loginForm');
+    if (form) {
+        form.addEventListener('submit', fazerLogin);
+    }
+});
  function fazerLogin(event) {
     event.preventDefault();
     
