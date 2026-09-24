@@ -953,7 +953,7 @@
         <h1>📊 Relatório de Medições</h1>
         <p class="subtitle">Controle de Medições Assessor-DNIT</p>
         
-       <form id="loginForm" onsubmit="event.preventDefault(); fazerLogin(event); return false;">
+      <form id="loginForm">
             <!-- Campo Usuário -->
             <div class="form-group">
                 <label for="username">👤 Usuário</label>
@@ -1308,7 +1308,11 @@
 // 🔥 CONFIGURAÇÃO DO POCKETBASE
 // ============================================================
 const PB_URL = 'https://pocketbase-production-6e7a.up.railway.app';
-const pb = new PocketBase(PB_URL);
+const pb = new PocketBase('https://pocketbase-production-6e7a.up.railway.app');
+
+// Força o SDK a usar cookies em vez de localStorage
+pb.authStore.loadFromCookie('pb_auth');
+    
 
 // Desabilita auto-cancelamento para não conflitar com múltiplas requisições
 pb.autoCancellation(false);
@@ -1317,14 +1321,17 @@ pb.autoCancellation(false);
 // 🔐 FUNÇÕES DE LOGIN
 // ============================================================
 
-    document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function() {
     var form = document.getElementById('loginForm');
     if (form) {
-        form.addEventListener('submit', fazerLogin);
+        form.addEventListener('submit', function(event) {
+            event.preventDefault(); // Impede o refresh da página
+            fazerLogin(event);      // Chama sua função de login
+        });
     }
 });
- function fazerLogin(event) {
-    event.preventDefault();
+ async function fazerLogin(event) {
+    if (event) event.preventDefault();
     
     const username = document.getElementById('username').value.trim();
     const password = document.getElementById('password').value;
@@ -1341,6 +1348,9 @@ pb.autoCancellation(false);
     try {
         await pb.collection('usuarios').authWithPassword(username, password);
         
+        // Salva o token no cookie (importante para Edge e abas anônimas)
+        pb.authStore.save(pb.authStore.token, pb.authStore.model);
+        
         localStorage.setItem('usuarioLogado', username);
         localStorage.setItem('sessaoAtiva', 'true');
         document.getElementById('usuarioNome').textContent = username;
@@ -1356,7 +1366,6 @@ pb.autoCancellation(false);
         return false;
     }
 }
-
 function fazerLogout() {
     pb.authStore.clear();
     localStorage.removeItem('sessaoAtiva');
