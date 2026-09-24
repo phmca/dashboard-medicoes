@@ -4,7 +4,9 @@
     <meta charset="UTF-8">
     <title>Relatório de Medições</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/pocketbase@0.25.0/dist/pocketbase.umd.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
 
     <style>
     /* ===== ESTILOS ORIGINAIS (mantidos) ===== */
@@ -1305,13 +1307,22 @@
 </div>
 <script>
 // ============================================================
-// 🔥 CONFIGURAÇÃO DO POCKETBASE
+// 🔥 CONFIGURAÇÃO DO FIREBASE
 // ============================================================
-const PB_URL = 'https://pocketbase-production-6e7a.up.railway.app';
-const pb = new PocketBase(PB_URL);
-
-// Desabilita auto-cancelamento para não conflitar com múltiplas requisições
-pb.autoCancellation(false);
+const firebaseConfig = {
+  apiKey: "AIzaSyCVoan1YN_9mcSsJiR6HvbVnSA66GgKriY",
+  authDomain: "dashboard-medicoes.firebaseapp.com",
+  databaseURL: "https://dashboard-medicoes-default-rtdb.firebaseio.com",
+  projectId: "dashboard-medicoes",
+  storageBucket: "dashboard-medicoes.firebasestorage.app",
+  messagingSenderId: "144117389070",
+  appId: "1:144117389070:web:6292808c40858653bc295f"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.database();
+// Usuários são cadastrados no Firebase Authentication com e-mail fictício: usuario + este domínio
+const EMAIL_DOMAIN = '@dashboard-medicoes.local';
 
 // ============================================================
 // 🔐 FUNÇÕES DE LOGIN
@@ -1332,7 +1343,7 @@ async function fazerLogin(event) {
     }
     
     try {
-        await pb.collection('usuarios').authWithPassword(username, password);
+        await auth.signInWithEmailAndPassword(username.toLowerCase() + EMAIL_DOMAIN, password);
         
         localStorage.setItem('usuarioLogado', username);
         localStorage.setItem('sessaoAtiva', 'true');
@@ -1351,7 +1362,7 @@ async function fazerLogin(event) {
 }
 
 function fazerLogout() {
-    pb.authStore.clear();
+    auth.signOut();
     localStorage.removeItem('sessaoAtiva');
     localStorage.removeItem('usuarioLogado');
     document.getElementById('relatorioPDF').style.display = 'none';
@@ -1492,36 +1503,39 @@ function gerarDadosIniciais() {
 }
 
 // ============================================================
-// 🔥 CARREGAR DADOS DO POCKETBASE
+// 🔥 CARREGAR DADOS DO FIREBASE
 // ============================================================
+function mapearRegistros(registros) {
+    return Object.keys(registros).map(function(key) {
+        var r = registros[key];
+        return {
+            med: r.med,
+            mes: r.mes,
+            data: r.data || '',
+            previsto: r.previsto || 0,
+            realizado: r.realizado || 0,
+            reaj: r.reaj || 0,
+            ndg: r.ndg || 0,
+            despesa: r.despesa || 0,
+            status: r.status || 'nao_iniciado',
+            obs: r.obs || '',
+            totalLiq: r.totalLiq || 0,
+            acumulado: r.acumulado || 0
+        };
+    }).sort(function(a, b) { return parseInt(a.med) - parseInt(b.med); });
+}
+
 async function carregarDados() {
     if (dadosCarregados) return;
     
     mostrarStatus('🔄 Carregando dados...', true);
     
     try {
-        const registros = await pb.collection('medicoes').getFullList({
-            sort: 'med'
-        });
+        const snapshot = await db.ref('medicoes').once('value');
+        const registros = snapshot.val();
         
-        if (registros && registros.length > 0) {
-            dados = registros.map(function(r) {
-                return {
-                    med: r.med,
-                    mes: r.mes,
-                    data: r.data || '',
-                    previsto: r.previsto || 0,
-                    realizado: r.realizado || 0,
-                    reaj: r.reaj || 0,
-                    ndg: r.ndg || 0,
-                    despesa: r.despesa || 0,
-                    status: r.status || 'nao_iniciado',
-                    obs: r.obs || '',
-                    totalLiq: r.totalLiq || 0,
-                    acumulado: r.acumulado || 0,
-                    pbId: r.id
-                };
-            });
+        if (registros) {
+            dados = mapearRegistros(registros);
             dadosCarregados = true;
             mostrarStatus('✅ Dados carregados!', true);
         } else {
@@ -1554,16 +1568,17 @@ async function carregarDados() {
 }
 
 // ============================================================
-// 🔥 SALVAR DADOS NO POCKETBASE
+// 🔥 SALVAR DADOS NO FIREBASE
 // ============================================================
 async function salvarDados() {
     if (salvando) return;
     salvando = true;
     
     try {
+        var payloadTotal = {};
         for (var i = 0; i < dados.length; i++) {
             var d = dados[i];
-            var payload = {
+            payloadTotal[d.med] = {
                 med: d.med,
                 mes: d.mes,
                 data: d.data || '',
@@ -1577,14 +1592,9 @@ async function salvarDados() {
                 totalLiq: d.totalLiq || 0,
                 acumulado: d.acumulado || 0
             };
-            
-            if (d.pbId) {
-                await pb.collection('medicoes').update(d.pbId, payload);
-            } else {
-                var novo = await pb.collection('medicoes').create(payload);
-                d.pbId = novo.id;
-            }
         }
+        
+        await db.ref('medicoes').set(payloadTotal);
         
         salvando = false;
         mostrarStatus('✅ Dados salvos!', true);
@@ -1602,30 +1612,13 @@ var inscricaoAtiva = null;
 
 function iniciarSincronizacao() {
     if (inscricaoAtiva) return;
+    inscricaoAtiva = true;
     
-    inscricaoAtiva = pb.collection('medicoes').subscribe('*', function(e) {
-        console.log('Mudança detectada:', e.action);
-        // Recarrega os dados sem mostrar mensagem de carregamento
-        pb.collection('medicoes').getFullList({ sort: 'med' }).then(function(registros) {
-            dados = registros.map(function(r) {
-                return {
-                    med: r.med,
-                    mes: r.mes,
-                    data: r.data || '',
-                    previsto: r.previsto || 0,
-                    realizado: r.realizado || 0,
-                    reaj: r.reaj || 0,
-                    ndg: r.ndg || 0,
-                    despesa: r.despesa || 0,
-                    status: r.status || 'nao_iniciado',
-                    obs: r.obs || '',
-                    totalLiq: r.totalLiq || 0,
-                    acumulado: r.acumulado || 0,
-                    pbId: r.id
-                };
-            });
-            aplicarFiltros();
-        });
+    db.ref('medicoes').on('value', function(snapshot) {
+        var registros = snapshot.val();
+        if (!registros) return;
+        dados = mapearRegistros(registros);
+        aplicarFiltros();
     });
 }
 
@@ -2538,7 +2531,7 @@ async function salvarTodos() {
         }
     }
     
-    // 3) Salva no PocketBase
+    // 3) Salva no Firebase
     await salvarDados();
     
     // 4) Atualiza os cards e gráficos SEM recriar a tabela
@@ -2959,12 +2952,14 @@ function gerarApresentacao() {
 // ============================================================
 // 🚀 INICIALIZAÇÃO
 // ============================================================
-if (pb.authStore.isValid) {
-    document.getElementById('loginOverlay').classList.add('hidden');
-    document.getElementById('relatorioPDF').style.display = 'block';
-    document.getElementById('usuarioNome').textContent = localStorage.getItem('usuarioLogado') || 'dev1';
-    carregarDados();
-}
+auth.onAuthStateChanged(function(user) {
+    if (user) {
+        document.getElementById('loginOverlay').classList.add('hidden');
+        document.getElementById('relatorioPDF').style.display = 'block';
+        document.getElementById('usuarioNome').textContent = localStorage.getItem('usuarioLogado') || 'dev1';
+        carregarDados();
+    }
+});
 
 // Fecha dropdowns ao clicar fora
 document.addEventListener('click', function(event) {
