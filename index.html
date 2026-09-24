@@ -4,9 +4,9 @@
     <meta charset="UTF-8">
     <title>Relatório de Medições</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
 
     <style>
     /* ===== ESTILOS ORIGINAIS (mantidos) ===== */
@@ -1312,46 +1312,45 @@
 const firebaseConfig = {
   apiKey: "AIzaSyCVoan1YN_9mcSsJiR6HvbVnSA66GgKriY",
   authDomain: "dashboard-medicoes.firebaseapp.com",
-  databaseURL: "https://dashboard-medicoes-default-rtdb.firebaseio.com",
   projectId: "dashboard-medicoes",
   storageBucket: "dashboard-medicoes.firebasestorage.app",
   messagingSenderId: "144117389070",
   appId: "1:144117389070:web:6292808c40858653bc295f"
 };
+
 firebase.initializeApp(firebaseConfig);
+const database = firebase.database();
 const auth = firebase.auth();
-const db = firebase.database();
-// Usuários são cadastrados no Firebase Authentication com e-mail fictício: usuario + este domínio
-const EMAIL_DOMAIN = '@dashboard-medicoes.local';
 
 // ============================================================
-// 🔐 FUNÇÕES DE LOGIN
+// 📊 REFERÊNCIAS NO BANCO DE DADOS
+// ============================================================
+const REF_MEDICOES = 'medicoes';
+const REF_EMPRESAS = 'empresas';
+const REF_CONFIG = 'config';
+
+// ============================================================
+// 🔐 FUNÇÕES DE LOGIN (Firebase Auth)
 // ============================================================
 async function fazerLogin(event) {
     event.preventDefault();
-    
+
     const username = document.getElementById('username').value.trim();
     const password = document.getElementById('password').value;
     const errorEl = document.getElementById('loginError');
-    
+
     errorEl.classList.remove('show');
-    
+
     if (!username || !password) {
         errorEl.textContent = '❌ Preencha usuário e senha!';
         errorEl.classList.add('show');
         return false;
     }
-    
+
+    const email = username + '@interno.local';
+
     try {
-        await auth.signInWithEmailAndPassword(username.toLowerCase() + EMAIL_DOMAIN, password);
-        
-        localStorage.setItem('usuarioLogado', username);
-        localStorage.setItem('sessaoAtiva', 'true');
-        document.getElementById('usuarioNome').textContent = username;
-        document.getElementById('loginOverlay').classList.add('hidden');
-        document.getElementById('relatorioPDF').style.display = 'block';
-        
-        await carregarDados();
+        await auth.signInWithEmailAndPassword(email, password);
         return true;
     } catch (erro) {
         console.error('Erro no login:', erro);
@@ -1362,21 +1361,21 @@ async function fazerLogin(event) {
 }
 
 function fazerLogout() {
-    auth.signOut();
-    localStorage.removeItem('sessaoAtiva');
-    localStorage.removeItem('usuarioLogado');
-    document.getElementById('relatorioPDF').style.display = 'none';
-    document.getElementById('loginOverlay').classList.remove('hidden');
-    document.getElementById('username').value = '';
-    document.getElementById('password').value = '';
+    auth.signOut().then(() => {
+        document.getElementById('relatorioPDF').style.display = 'none';
+        document.getElementById('loginOverlay').classList.remove('hidden');
+        document.getElementById('username').value = '';
+        document.getElementById('password').value = '';
+        dadosCarregados = false;
+    });
 }
 
 function toggleSenha() {
     const senhaInput = document.getElementById('password');
     const toggleBtn = document.getElementById('toggleSenhaBtn');
-    
+
     if (!senhaInput || !toggleBtn) return;
-    
+
     if (senhaInput.type === 'password') {
         senhaInput.type = 'text';
         toggleBtn.textContent = '🙈';
@@ -1435,20 +1434,20 @@ var statusOptions = [
 ];
 
 // ============================================================
-// 🔥 GERAÇÃO DE DADOS INICIAIS (mesma lógica do original)
+// 🔥 GERAÇÃO DE DADOS INICIAIS
 // ============================================================
 function gerarDadosIniciais() {
     var meses = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
     var dadosTemp = [];
     var ano = 2025;
     var idx = 8;
-    
+
     for (var c = 1; c <= 60; c++) {
         var mesAno = meses[idx] + "/" + ano;
         var reaj = 0, status = "nao_iniciado", obs = "", dataEntrega = "", realizado = 0, ndg = 0, despesa = 0;
-        
+
         var dadoPDF = dadosPDF.find(function(d) { return parseInt(d.med) === c; });
-        
+
         if (dadoPDF) {
             reaj = dadoPDF.reaj || 0;
             status = dadoPDF.status || "nao_iniciado";
@@ -1471,26 +1470,17 @@ function gerarDadosIniciais() {
                 }
             }
         }
-        
+
         dadosTemp.push({
-            med: String(c),
-            mes: mesAno,
-            data: dataEntrega,
-            previsto: valorPrevistoMensal,
-            reaj: reaj,
-            status: status,
-            obs: obs,
-            realizado: realizado,
-            ndg: ndg,
-            despesa: despesa,
-            totalLiq: valorPrevistoMensal + reaj,
-            acumulado: 0
+            med: String(c), mes: mesAno, data: dataEntrega, previsto: valorPrevistoMensal,
+            reaj: reaj, status: status, obs: obs, realizado: realizado, ndg: ndg, despesa: despesa,
+            totalLiq: valorPrevistoMensal + reaj, acumulado: 0
         });
-        
+
         idx++;
         if (idx >= 12) { idx = 0; ano++; }
     }
-    
+
     var somaAcumulada = 0;
     for (var i = 0; i < dadosTemp.length; i++) {
         if (dadosTemp[i].data && dadosTemp[i].data !== '' && isDataValida(dadosTemp[i].data)) {
@@ -1498,128 +1488,180 @@ function gerarDadosIniciais() {
         }
         dadosTemp[i].acumulado = somaAcumulada;
     }
-    
+
     return dadosTemp;
-}
-
-// ============================================================
-// 🔥 CARREGAR DADOS DO FIREBASE
-// ============================================================
-function mapearRegistros(registros) {
-    return Object.keys(registros).map(function(key) {
-        var r = registros[key];
-        return {
-            med: r.med,
-            mes: r.mes,
-            data: r.data || '',
-            previsto: r.previsto || 0,
-            realizado: r.realizado || 0,
-            reaj: r.reaj || 0,
-            ndg: r.ndg || 0,
-            despesa: r.despesa || 0,
-            status: r.status || 'nao_iniciado',
-            obs: r.obs || '',
-            totalLiq: r.totalLiq || 0,
-            acumulado: r.acumulado || 0
-        };
-    }).sort(function(a, b) { return parseInt(a.med) - parseInt(b.med); });
-}
-
-async function carregarDados() {
-    if (dadosCarregados) return;
-    
-    mostrarStatus('🔄 Carregando dados...', true);
-    
-    try {
-        const snapshot = await db.ref('medicoes').once('value');
-        const registros = snapshot.val();
-        
-        if (registros) {
-            dados = mapearRegistros(registros);
-            dadosCarregados = true;
-            mostrarStatus('✅ Dados carregados!', true);
-        } else {
-            // Primeira vez - gera e salva dados iniciais
-            mostrarStatus('📥 Primeiro acesso! Criando dados iniciais...', true);
-            dados = gerarDadosIniciais();
-            dadosCarregados = true;
-            await salvarDados();
-        }
-        
-        // Seleciona todas as empresas por padrão
-        document.querySelectorAll('.empresa-btn').forEach(function(btn) {
-            var empresa = btn.getAttribute('data-empresa');
-            empresasSelecionadas[empresa] = true;
-            btn.classList.add('selecionado');
-        });
-        
-        // Inicia sincronização em tempo real
-        iniciarSincronizacao();
-        
-        initSelects();
-        atualizarCardsEmpresas();
-        atualizarTotalSelecionado();
-        aplicarFiltros();
-        
-    } catch (erro) {
-        console.error('Erro ao carregar:', erro);
-        mostrarStatus('❌ Erro ao carregar dados.', false);
-    }
 }
 
 // ============================================================
 // 🔥 SALVAR DADOS NO FIREBASE
 // ============================================================
-async function salvarDados() {
+function salvarDadosFirebase(dadosParaSalvar) {
     if (salvando) return;
     salvando = true;
-    
-    try {
-        var payloadTotal = {};
-        for (var i = 0; i < dados.length; i++) {
-            var d = dados[i];
-            payloadTotal[d.med] = {
-                med: d.med,
-                mes: d.mes,
-                data: d.data || '',
-                previsto: d.previsto || 0,
-                realizado: d.realizado || 0,
-                reaj: d.reaj || 0,
-                ndg: d.ndg || 0,
-                despesa: d.despesa || 0,
-                status: d.status || 'nao_iniciado',
-                obs: d.obs || '',
-                totalLiq: d.totalLiq || 0,
-                acumulado: d.acumulado || 0
-            };
-        }
-        
-        await db.ref('medicoes').set(payloadTotal);
-        
-        salvando = false;
-        mostrarStatus('✅ Dados salvos!', true);
-    } catch (erro) {
-        salvando = false;
-        console.error('Erro ao salvar:', erro);
-        mostrarStatus('❌ Erro ao salvar: ' + erro.message, false);
+
+    const updates = {};
+    const empresas = {};
+
+    for (var i = 0; i < dadosParaSalvar.length; i++) {
+        const d = dadosParaSalvar[i];
+        updates[REF_MEDICOES + '/' + d.med] = {
+            med: d.med, mes: d.mes, data: d.data || '', previsto: d.previsto || 0,
+            realizado: d.realizado || 0, reaj: d.reaj || 0, ndg: d.ndg || 0,
+            despesa: d.despesa || 0, status: d.status || 'nao_iniciado', obs: d.obs || '',
+            totalLiq: d.totalLiq || 0, acumulado: d.acumulado || 0
+        };
     }
+
+    for (var emp in empresasSelecionadas) {
+        if (empresasSelecionadas[emp]) {
+            empresas[emp] = true;
+        }
+    }
+
+    updates[REF_EMPRESAS] = empresas;
+    updates[REF_CONFIG + '/ultimaAtualizacao'] = new Date().toISOString();
+    updates[REF_CONFIG + '/usuario'] = auth.currentUser ? auth.currentUser.email : 'desconhecido';
+
+    database.ref().update(updates)
+        .then(function() {
+            salvando = false;
+            mostrarStatus('✅ Dados salvos no Firebase!', true);
+        })
+        .catch(function(error) {
+            salvando = false;
+            mostrarStatus('❌ Erro ao salvar: ' + error.message, false);
+            console.error('Erro Firebase:', error);
+        });
 }
 
 // ============================================================
-// 🔥 SINCRONIZAÇÃO EM TEMPO REAL
+// 🔥 CARREGAR DADOS DO FIREBASE
 // ============================================================
-var inscricaoAtiva = null;
+function carregarDados() {
+    if (dadosCarregados || !auth.currentUser) return;
 
-function iniciarSincronizacao() {
-    if (inscricaoAtiva) return;
-    inscricaoAtiva = true;
-    
-    db.ref('medicoes').on('value', function(snapshot) {
-        var registros = snapshot.val();
-        if (!registros) return;
-        dados = mapearRegistros(registros);
-        aplicarFiltros();
+    mostrarStatus('🔄 Carregando dados do Firebase...', true);
+
+    database.ref(REF_MEDICOES).once('value')
+        .then(function(snapshot) {
+            const dadosFirebase = snapshot.val();
+
+            if (dadosFirebase) {
+                const dadosTemp = [];
+                for (var key in dadosFirebase) {
+                    if (dadosFirebase.hasOwnProperty(key)) {
+                        const item = dadosFirebase[key];
+                        item.med = key;
+                        dadosTemp.push(item);
+                    }
+                }
+
+                dadosTemp.sort(function(a, b) {
+                    return parseInt(a.med) - parseInt(b.med);
+                });
+
+                dados = dadosTemp;
+                dadosCarregados = true;
+
+                database.ref(REF_EMPRESAS).once('value')
+                    .then(function(snapEmpresas) {
+                        const empresasFirebase = snapEmpresas.val();
+                        if (empresasFirebase) {
+                            for (var emp in empresasFirebase) {
+                                if (empresasFirebase[emp]) {
+                                    empresasSelecionadas[emp] = true;
+                                }
+                            }
+                        }
+                        document.querySelectorAll('.empresa-btn').forEach(function(btn) {
+                            const empresa = btn.getAttribute('data-empresa');
+                            if (empresasSelecionadas[empresa]) {
+                                btn.classList.add('selecionado');
+                            } else {
+                                btn.classList.remove('selecionado');
+                            }
+                        });
+                        finalizarCarregamento();
+                    })
+                    .catch(function() {
+                        document.querySelectorAll('.empresa-btn').forEach(function(btn) {
+                            const empresa = btn.getAttribute('data-empresa');
+                            empresasSelecionadas[empresa] = true;
+                            btn.classList.add('selecionado');
+                        });
+                        finalizarCarregamento();
+                    });
+            } else {
+                mostrarStatus('📥 Primeiro acesso! Salvando dados iniciais...', true);
+                dados = gerarDadosIniciais();
+                dadosCarregados = true;
+
+                document.querySelectorAll('.empresa-btn').forEach(function(btn) {
+                    const empresa = btn.getAttribute('data-empresa');
+                    empresasSelecionadas[empresa] = true;
+                    btn.classList.add('selecionado');
+                });
+
+                salvarDadosFirebase(dados);
+                finalizarCarregamento();
+            }
+        })
+        .catch(function(error) {
+            console.error('Erro ao carregar do Firebase:', error);
+            mostrarStatus('❌ Erro ao carregar dados. Usando dados locais.', false);
+            carregarDadosLocal();
+        });
+}
+
+function finalizarCarregamento() {
+    mostrarStatus('✅ Dados carregados!', true);
+    initSelects();
+    atualizarCardsEmpresas();
+    atualizarTotalSelecionado();
+    aplicarFiltros();
+}
+
+// ============================================================
+// 📊 FALLBACK - CARREGAR DADOS DO LOCALSTORAGE
+// ============================================================
+function carregarDadosLocal() {
+    var salvos = localStorage.getItem('medições_dados_v9_final');
+    if (salvos) {
+        try {
+            dados = JSON.parse(salvos);
+            for (var i = 0; i < dados.length; i++) {
+                if (typeof dados[i].obs === 'undefined') dados[i].obs = '';
+                if (typeof dados[i].reaj === 'undefined') dados[i].reaj = 0;
+                if (typeof dados[i].despesa === 'undefined') dados[i].despesa = 0;
+                if (typeof dados[i].acumulado === 'undefined') dados[i].acumulado = 0;
+                if (typeof dados[i].ndg === 'undefined') dados[i].ndg = 0;
+                dados[i].previsto = valorPrevistoMensal;
+                dados[i].totalLiq = dados[i].previsto + (dados[i].reaj || 0);
+                if (dados[i].data === '-' || dados[i].data === '---') dados[i].data = '';
+            }
+            var somaAcumulada = 0;
+            for (var i = 0; i < dados.length; i++) {
+                if (dados[i].data && dados[i].data !== '' && isDataValida(dados[i].data)) {
+                    somaAcumulada += dados[i].totalLiq;
+                }
+                dados[i].acumulado = somaAcumulada;
+            }
+        } catch(e) {
+            dados = gerarDadosIniciais();
+        }
+    } else {
+        dados = gerarDadosIniciais();
+    }
+
+    initSelects();
+    document.querySelectorAll('.empresa-btn').forEach(function(btn) {
+        var empresa = btn.getAttribute('data-empresa');
+        empresasSelecionadas[empresa] = true;
+        btn.classList.add('selecionado');
     });
+    atualizarCardsEmpresas();
+    atualizarTotalSelecionado();
+    aplicarFiltros();
 }
 
 // ============================================================
@@ -1629,9 +1671,7 @@ function isDataValida(dataStr) {
     if (!dataStr || dataStr.length !== 10) return false;
     var partes = dataStr.split('/');
     if (partes.length !== 3) return false;
-    var dia = parseInt(partes[0], 10);
-    var mes = parseInt(partes[1], 10);
-    var ano = parseInt(partes[2], 10);
+    var dia = parseInt(partes[0], 10), mes = parseInt(partes[1], 10), ano = parseInt(partes[2], 10);
     if (isNaN(dia) || isNaN(mes) || isNaN(ano)) return false;
     if (dia < 1 || dia > 31) return false;
     if (mes < 1 || mes > 12) return false;
@@ -1654,8 +1694,7 @@ function getClassePorNDG(ndg) {
 }
 
 function extrairAno(mesAno) {
-    var partes = mesAno.split('/');
-    return partes[1];
+    return mesAno.split('/')[1];
 }
 
 function formatar(v) {
@@ -1694,7 +1733,7 @@ function calcularFatorEmpresas() {
 function getFilteredDataByEmpresa(dadosOriginais) {
     var fator = calcularFatorEmpresas();
     if (fator === 0 || fator === 1) return dadosOriginais;
-    
+
     return dadosOriginais.map(function(item) {
         var novoItem = JSON.parse(JSON.stringify(item));
         novoItem.reaj = (item.reaj || 0) * fator;
@@ -1766,7 +1805,7 @@ function setChartType(type) {
 function aplicarMascaraData(input) {
     var valor = input.value.replace(/\D/g, '');
     if (valor.length > 8) valor = valor.slice(0, 8);
-    
+
     if (valor.length >= 2 && valor.length <= 3) {
         valor = valor.slice(0, 2) + (valor.length > 2 ? '/' + valor.slice(2) : '');
     } else if (valor.length >= 4 && valor.length <= 5) {
@@ -1774,7 +1813,7 @@ function aplicarMascaraData(input) {
     } else if (valor.length >= 6) {
         valor = valor.slice(0, 2) + '/' + valor.slice(2, 4) + '/' + valor.slice(4, 8);
     }
-    
+
     input.value = valor;
 }
 
@@ -1787,16 +1826,14 @@ function mostrarStatus(mensagem, sucesso) {
 }
 
 // ============================================================
-// 📊 FUNÇÕES DE DROPDOWN (mantidas iguais)
+// 📊 FUNÇÕES DE DROPDOWN
 // ============================================================
 function toggleDropdown(id) {
     var menu = document.getElementById(id);
     var arrow = document.getElementById('arrow' + id.charAt(0).toUpperCase() + id.slice(1));
     if (menu) {
         var isOpen = menu.classList.toggle('open');
-        if (arrow) {
-            arrow.classList.toggle('open');
-        }
+        if (arrow) arrow.classList.toggle('open');
         document.querySelectorAll('.dropdown-menu').forEach(function(el) {
             if (el.id !== id) {
                 el.classList.remove('open');
@@ -1826,16 +1863,12 @@ function toggleAllOptions(dropdownId) {
     var checkboxes = container.querySelectorAll('.option-item:not(.select-all) input[type="checkbox"]');
     var selectAll = container.querySelector('.select-all input[type="checkbox"]');
     var allChecked = true;
-    checkboxes.forEach(function(cb) {
-        if (!cb.checked) allChecked = false;
-    });
+    checkboxes.forEach(function(cb) { if (!cb.checked) allChecked = false; });
     checkboxes.forEach(function(cb) {
         cb.checked = !allChecked;
         cb.dispatchEvent(new Event('change'));
     });
-    if (selectAll) {
-        selectAll.checked = !allChecked;
-    }
+    if (selectAll) selectAll.checked = !allChecked;
     aplicarFiltros();
 }
 
@@ -1844,9 +1877,7 @@ function obterValoresDropdown(dropdownId) {
     if (!container) return [];
     var checkboxes = container.querySelectorAll('.option-item:not(.select-all) input[type="checkbox"]:checked');
     var valores = [];
-    checkboxes.forEach(function(cb) {
-        valores.push(cb.value);
-    });
+    checkboxes.forEach(function(cb) { valores.push(cb.value); });
     return valores;
 }
 
@@ -1884,24 +1915,19 @@ function initDropdowns() {
             optionsMed.appendChild(div);
         }
     }
-    
+
     var optionsPer = document.getElementById('optionsPeriodo');
     if (optionsPer) {
         optionsPer.innerHTML = '';
         var mesesUnicos = [];
         for (var i = 0; i < dados.length; i++) {
-            if (mesesUnicos.indexOf(dados[i].mes) === -1) {
-                mesesUnicos.push(dados[i].mes);
-            }
+            if (mesesUnicos.indexOf(dados[i].mes) === -1) mesesUnicos.push(dados[i].mes);
         }
         mesesUnicos.sort(function(a, b) {
-            var aAno = parseInt(a.split('/')[1]);
-            var bAno = parseInt(b.split('/')[1]);
+            var aAno = parseInt(a.split('/')[1]), bAno = parseInt(b.split('/')[1]);
             if (aAno !== bAno) return aAno - bAno;
-            var meses = {jan:1, fev:2, mar:3, abr:4, mai:5, jun:6, jul:7, ago:8, set:9, out:10, nov:11, dez:12};
-            var aMes = meses[a.split('/')[0]];
-            var bMes = meses[b.split('/')[0]];
-            return aMes - bMes;
+            var meses = {jan:1,fev:2,mar:3,abr:4,mai:5,jun:6,jul:7,ago:8,set:9,out:10,nov:11,dez:12};
+            return meses[a.split('/')[0]] - meses[b.split('/')[0]];
         });
         for (var i = 0; i < mesesUnicos.length; i++) {
             var div = document.createElement('div');
@@ -1910,7 +1936,7 @@ function initDropdowns() {
             optionsPer.appendChild(div);
         }
     }
-    
+
     var optionsAno = document.getElementById('optionsAno');
     if (optionsAno) {
         optionsAno.innerHTML = '';
@@ -1922,7 +1948,7 @@ function initDropdowns() {
             optionsAno.appendChild(div);
         }
     }
-    
+
     var optionsStatus = document.getElementById('optionsStatus');
     if (optionsStatus) {
         optionsStatus.innerHTML = '';
@@ -1941,7 +1967,7 @@ function initDropdowns() {
             optionsStatus.appendChild(div);
         }
     }
-    
+
     atualizarBadges();
 }
 
@@ -1958,7 +1984,7 @@ function calcularTotalComFiltros() {
     var anoSelecionados = obterValoresDropdown('dropdownAno');
     var stSelecionados = obterValoresDropdown('dropdownStatus');
     var mostrar = document.getElementById('mostrarVazios') ? document.getElementById('mostrarVazios').checked : false;
-    
+
     var filtrados = dados.slice();
     if (!mostrar) filtrados = filtrados.filter(function(d) { return d.data && d.data !== '' && isDataValida(d.data); });
     if (medSelecionados.length > 0) filtrados = filtrados.filter(function(d) { return medSelecionados.indexOf(d.med) !== -1; });
@@ -1968,7 +1994,7 @@ function calcularTotalComFiltros() {
         var stNorm = stSelecionados.map(function(s) { return s === 'não_iniciado' ? 'nao_iniciado' : s; });
         filtrados = filtrados.filter(function(d) { return stNorm.indexOf(d.status) !== -1; });
     }
-    
+
     var total = 0;
     for (var i = 0; i < filtrados.length; i++) {
         if (filtrados[i].status === 'pago' && filtrados[i].data && filtrados[i].data !== '' && isDataValida(filtrados[i].data)) {
@@ -1980,7 +2006,7 @@ function calcularTotalComFiltros() {
 
 function atualizarCardsEmpresas() {
     var totalRealizadoAcumulado = calcularTotalComFiltros();
-    
+
     for (var empresa in percentuaisEmpresas) {
         var valor = totalRealizadoAcumulado * percentuaisEmpresas[empresa];
         var el = document.getElementById('valor' + empresa);
@@ -2002,17 +2028,14 @@ function atualizarCardsEmpresas() {
 
 function atualizarTotalSelecionado() {
     var totalRealizadoAcumulado = calcularTotalComFiltros();
-    
     var totalPercentual = 0;
     for (var emp in empresasSelecionadas) {
-        if (empresasSelecionadas[emp]) {
-            totalPercentual += percentuaisEmpresas[emp];
-        }
+        if (empresasSelecionadas[emp]) totalPercentual += percentuaisEmpresas[emp];
     }
-    
+
     var totalSelecionado = totalRealizadoAcumulado * totalPercentual;
     var percentualContrato = (totalPercentual * 100);
-    
+
     var elTotalSelecionado = document.getElementById('totalSelecionado');
     if (elTotalSelecionado) {
         if (totalPercentual === 0) {
@@ -2035,14 +2058,13 @@ function toggleEmpresa(botao) {
     atualizarCardsEmpresas();
     atualizarTotalSelecionado();
     aplicarFiltros();
+    salvarDadosFirebase(dados);
 }
 
 function atualizarCards(filtrados) {
     var stats = {entregue:0, aprovado:0, analise:0, pagamento:0, pago:0, nao_iniciado:0};
-    var totalDespesasOnly = 0;
-    var totalDescontos = 0;
-    var totalReajustes = 0;
-    
+    var totalDespesasOnly = 0, totalDescontos = 0, totalReajustes = 0;
+
     for (var i = 0; i < filtrados.length; i++) {
         stats[filtrados[i].status]++;
         if (filtrados[i].status === 'pago') {
@@ -2050,51 +2072,47 @@ function atualizarCards(filtrados) {
             totalReajustes += filtrados[i].reaj || 0;
             var valorBase = filtrados[i].previsto + (filtrados[i].reaj || 0);
             var descPercent = getDescontoPorNDG(filtrados[i].ndg || 100);
-            var valorDesconto = valorBase * (descPercent / 100);
-            totalDescontos += valorDesconto;
+            totalDescontos += valorBase * (descPercent / 100);
         }
     }
-    
+
     var totalDespesasMaisDescontos = totalDespesasOnly + totalDescontos;
-    
+
     document.getElementById('totalDespesas').innerHTML = formatar(totalDespesasOnly);
     document.getElementById('totalDescontos').innerHTML = formatar(totalDescontos);
     document.getElementById('totalReajuste').innerHTML = formatar(totalReajustes);
-    document.getElementById('totalDespGrande').innerHTML = formatar(totalDespesasMaisDescontos) + 
+    document.getElementById('totalDespGrande').innerHTML = formatar(totalDespesasMaisDescontos) +
         ' <span style="font-size:10px; opacity:0.8;">(desc: ' + formatar(totalDescontos) + ')</span>';
-    
+
     document.getElementById('totalEntregue').textContent = stats.entregue;
     document.getElementById('totalAprovado').textContent = stats.aprovado;
     document.getElementById('totalAnalise').textContent = stats.analise;
     document.getElementById('totalPagamento').textContent = stats.pagamento;
     document.getElementById('totalPago').textContent = stats.pago;
     document.getElementById('totalNao').textContent = stats.nao_iniciado;
-    
+
     var total = filtrados.length;
-    var pct = function(val, tot) { 
-        return tot > 0 ? ((val/tot)*100).toFixed(1) + '%' : '0%'; 
-    };
-    
+    var pct = function(val, tot) { return tot > 0 ? ((val/tot)*100).toFixed(1) + '%' : '0%'; };
+
     document.getElementById('pEntregue').textContent = pct(stats.entregue, total);
     document.getElementById('pAprovado').textContent = pct(stats.aprovado, total);
     document.getElementById('pAnalise').textContent = pct(stats.analise, total);
     document.getElementById('pPagamento').textContent = pct(stats.pagamento, total);
     document.getElementById('pPago').textContent = pct(stats.pago, total);
     document.getElementById('pNao').textContent = pct(stats.nao_iniciado, total);
-    
+
     var totalAcumulado = calcularTotalComFiltros();
     var fator = calcularFatorEmpresas();
     totalAcumulado = totalAcumulado * fator;
-    
+
     document.getElementById('totalExecutadoValor').innerHTML = formatar(totalAcumulado);
-    
     var perc = totalAcumulado > 0 ? (totalAcumulado / totalContrato * 100) : 0;
     document.getElementById('percExecGrande').textContent = perc.toFixed(2) + '%';
     var bar = document.getElementById('progressBarFill');
     bar.style.width = Math.min(perc, 100) + '%';
     bar.innerHTML = Math.min(perc, 100).toFixed(1) + '%';
     document.getElementById('saldoRestante').innerHTML = formatar(totalContrato - totalAcumulado);
-    
+
     atualizarGraficoFinanceiro();
     atualizarGraficoAcumulado(filtrados);
     atualizarCardsEmpresas();
@@ -2104,39 +2122,35 @@ function atualizarCards(filtrados) {
 function atualizarGraficoFinanceiro() {
     var fator = calcularFatorEmpresas();
     if (fator === 0) fator = 1;
-    
+
     var medSelecionados = obterValoresDropdown('dropdownMedicao');
     var perSelecionados = obterValoresDropdown('dropdownPeriodo');
     var anoSelecionados = obterValoresDropdown('dropdownAno');
     var mostrarVazios = document.getElementById('mostrarVazios') ? document.getElementById('mostrarVazios').checked : false;
-    
+
     var dadosFiltrados = dados.slice();
     if (!mostrarVazios) dadosFiltrados = dadosFiltrados.filter(function(d) { return d.data && d.data !== '' && isDataValida(d.data); });
     if (medSelecionados.length > 0) dadosFiltrados = dadosFiltrados.filter(function(d) { return medSelecionados.indexOf(d.med) !== -1; });
     if (perSelecionados.length > 0) dadosFiltrados = dadosFiltrados.filter(function(d) { return perSelecionados.indexOf(d.mes) !== -1; });
     if (anoSelecionados.length > 0) dadosFiltrados = dadosFiltrados.filter(function(d) { return anoSelecionados.indexOf(extrairAno(d.mes)) !== -1; });
-    
+
     dadosFiltrados = getFilteredDataByEmpresa(dadosFiltrados);
-    
-    var dadosOrdenados = [...dadosFiltrados].sort(function(a, b) {
-        return parseInt(a.med) - parseInt(b.med);
-    });
-    
+
+    var dadosOrdenados = [...dadosFiltrados].sort(function(a, b) { return parseInt(a.med) - parseInt(b.med); });
     var labels = dadosOrdenados.map(function(d) { return d.mes; });
     var realizados = dadosOrdenados.map(function(d) { return d.realizado; });
     var previstos = dadosOrdenados.map(function(d) { return d.previsto; });
     var despesas = dadosOrdenados.map(function(d) { return d.despesa || 0; });
-    var descontos = dadosOrdenados.map(function(d) { 
+    var descontos = dadosOrdenados.map(function(d) {
         var valorBase = (d.previsto || 0) + (d.reaj || 0);
         var descPercent = getDescontoPorNDG(d.ndg || 0);
         return valorBase * (descPercent / 100);
     });
-    
+
     var ctx = document.getElementById('graficoFinanceiro').getContext('2d');
     if (chartFinanceiro) chartFinanceiro.destroy();
-    
+
     var datasets = [];
-    
     if (currentChartType === 'line') {
         datasets = [
             { label: 'Realizado (R$)', data: realizados, borderColor: '#17a2b8', backgroundColor: 'rgba(23, 162, 184, 0.05)', borderWidth: 3, fill: false, tension: 0.3, pointRadius: 5, pointBackgroundColor: '#17a2b8', pointBorderColor: 'white' },
@@ -2152,7 +2166,7 @@ function atualizarGraficoFinanceiro() {
             { label: 'Previsto (R$)', data: previstos, backgroundColor: 'rgba(108, 117, 125, 0.7)', borderColor: '#6c757d', borderWidth: 2 }
         ];
     }
-    
+
     var chartConfig = {
         type: currentChartType,
         data: { labels: labels, datasets: datasets },
@@ -2174,62 +2188,52 @@ function atualizarGraficoFinanceiro() {
             }
         }
     };
-    
+
     if (currentChartType === 'bar') {
         chartConfig.options.scales.x = { ticks: { rotate: 45, font: { size: 9 } } };
     }
-    
+
     chartFinanceiro = new Chart(ctx, chartConfig);
 }
 
 function atualizarGraficoAcumulado(filtrados) {
     var fator = calcularFatorEmpresas();
     if (fator === 0) fator = 1;
-    
+
     var temFiltroEspecifico = obterValoresDropdown('dropdownMedicao').length > 0 || obterValoresDropdown('dropdownPeriodo').length > 0 || obterValoresDropdown('dropdownAno').length > 0;
-    
+
     var dadosParaGrafico = filtrados.filter(function(d) {
         return d.data && d.data !== '' && isDataValida(d.data);
     });
-    
+
     if (dadosParaGrafico.length === 0) {
         if (chartAcumulado) chartAcumulado.destroy();
         document.getElementById('graficoLegenda').innerHTML = '📊 Nenhum dado disponível para o período selecionado';
         return;
     }
-    
+
     var mesesOrdenados = [...new Set(dadosParaGrafico.map(d => d.mes))].sort(function(a, b) {
-        var aAno = parseInt(a.split('/')[1]);
-        var bAno = parseInt(b.split('/')[1]);
+        var aAno = parseInt(a.split('/')[1]), bAno = parseInt(b.split('/')[1]);
         if (aAno !== bAno) return aAno - bAno;
-        var meses = {jan:1, fev:2, mar:3, abr:4, mai:5, jun:6, jul:7, ago:8, set:9, out:10, nov:11, dez:12};
-        var aMes = meses[a.split('/')[0]];
-        var bMes = meses[b.split('/')[0]];
-        return aMes - bMes;
+        var meses = {jan:1,fev:2,mar:3,abr:4,mai:5,jun:6,jul:7,ago:8,set:9,out:10,nov:11,dez:12};
+        return meses[a.split('/')[0]] - meses[b.split('/')[0]];
     });
-    
+
     var labels = mesesOrdenados;
-    var dadosRealizado = [];
-    var dadosPrevisto = [];
-    var dadosRealizadoPago = [];
+    var dadosRealizado = [], dadosPrevisto = [], dadosRealizadoPago = [];
     var legendaTexto = '';
-    
+
     if (!temFiltroEspecifico) {
         legendaTexto = '📊 Valores ACUMULADOS (visão geral) - Linha pontilhada = apenas PAGO';
-        
         var somaRealizado = 0, somaPrevisto = 0, somaRealizadoPago = 0;
-        
         for (var i = 0; i < mesesOrdenados.length; i++) {
             var mes = mesesOrdenados[i];
             var realizadoMes = 0, previstoMes = 0, realizadoPagoMes = 0;
-            
             for (var j = 0; j < dadosParaGrafico.length; j++) {
                 if (dadosParaGrafico[j].mes === mes) {
                     realizadoMes += dadosParaGrafico[j].realizado;
                     previstoMes += dadosParaGrafico[j].previsto;
-                    if (dadosParaGrafico[j].status === 'pago') {
-                        realizadoPagoMes += dadosParaGrafico[j].realizado;
-                    }
+                    if (dadosParaGrafico[j].status === 'pago') realizadoPagoMes += dadosParaGrafico[j].realizado;
                 }
             }
             somaRealizado += realizadoMes;
@@ -2241,18 +2245,14 @@ function atualizarGraficoAcumulado(filtrados) {
         }
     } else {
         legendaTexto = '📊 Valores MENSAIS (filtro específico) - Linha pontilhada = apenas PAGO';
-        
         for (var i = 0; i < mesesOrdenados.length; i++) {
             var mes = mesesOrdenados[i];
             var realizadoMes = 0, previstoMes = 0, realizadoPagoMes = 0;
-            
             for (var j = 0; j < dadosParaGrafico.length; j++) {
                 if (dadosParaGrafico[j].mes === mes) {
                     realizadoMes += dadosParaGrafico[j].realizado;
                     previstoMes += dadosParaGrafico[j].previsto;
-                    if (dadosParaGrafico[j].status === 'pago') {
-                        realizadoPagoMes += dadosParaGrafico[j].realizado;
-                    }
+                    if (dadosParaGrafico[j].status === 'pago') realizadoPagoMes += dadosParaGrafico[j].realizado;
                 }
             }
             dadosRealizado.push(realizadoMes);
@@ -2260,16 +2260,16 @@ function atualizarGraficoAcumulado(filtrados) {
             dadosRealizadoPago.push(realizadoPagoMes);
         }
     }
-    
+
     document.getElementById('graficoLegenda').innerHTML = legendaTexto;
-    
+
     var maxValor = Math.max.apply(null, dadosRealizado.concat(dadosPrevisto, dadosRealizadoPago, [valorPrevistoMensal]));
     var maxValorArredondado = Math.ceil(maxValor / 1000000) * 1000000;
     if (maxValorArredondado === 0) maxValorArredondado = 2000000;
-    
+
     var ctx = document.getElementById('graficoAcumulado').getContext('2d');
     if (chartAcumulado) chartAcumulado.destroy();
-    
+
     chartAcumulado = new Chart(ctx, {
         type: 'line',
         data: {
@@ -2307,22 +2307,21 @@ function atualizarDiferenca(med) {
     var diferencaSpan = document.getElementById('diferenca_' + med);
     var fator = calcularFatorEmpresas();
     if (fator === 0) fator = 1;
-    
+
     if (realizadoInput && ndgInput && descontoSpan && diferencaSpan) {
         var realizado = parseFloat(realizadoInput.value.replace(/\./g,'').replace(',','.')) || 0;
         var ndg = parseInt(ndgInput.value) || 0;
         ndg = Math.min(100, Math.max(0, ndg));
         ndgInput.value = ndg;
         ndgInput.className = 'ndg-input ' + getClassePorNDG(ndg);
-        
+
         var reajInput = document.getElementById('reaj_' + med);
         var reaj = reajInput ? parseFloat(reajInput.value.replace(/\./g,'').replace(',','.')) || 0 : 0;
         var valorBase = valorPrevistoMensal + reaj;
-        
         var descPercent = getDescontoPorNDG(ndg);
         var valorDesconto = valorBase * (descPercent / 100);
         descontoSpan.innerHTML = formatar(valorDesconto) + ' (' + descPercent + '%)';
-        
+
         var valorPrevistoProporcional = valorPrevistoMensal * fator;
         var diferenca = realizado - valorPrevistoProporcional;
         diferencaSpan.innerHTML = formatarDiferenca(diferenca, valorPrevistoProporcional);
@@ -2332,31 +2331,28 @@ function atualizarDiferenca(med) {
 function renderizarTabela(filtrados) {
     var tbody = document.getElementById('tabelaBody');
     if (!tbody) return;
-    
+
     tbody.innerHTML = '';
     if (filtrados.length === 0) {
         tbody.innerHTML = '<tr><td colspan="13">Nenhum dado encontrado</td></tr>';
         atualizarCards([]);
         return;
     }
-    
+
     var fator = calcularFatorEmpresas();
     if (fator === 0) fator = 1;
     var valorPrevistoProporcional = valorPrevistoMensal * fator;
-    
-    var filtradosOrdenados = [...filtrados].sort(function(a, b) {
-        return parseInt(a.med) - parseInt(b.med);
-    });
-    
+
+    var filtradosOrdenados = [...filtrados].sort(function(a, b) { return parseInt(a.med) - parseInt(b.med); });
+
     for (var i = 0; i < filtradosOrdenados.length; i++) {
         var d = filtradosOrdenados[i];
         var row = tbody.insertRow();
-        
         var isNaoIniciado = !d.data || d.data === '' || !isDataValida(d.data);
-        
+
         row.insertCell(0).innerHTML = d.med;
         row.insertCell(1).innerHTML = d.mes;
-        
+
         var cellData = row.insertCell(2);
         var dataInput = document.createElement('input');
         dataInput.type = 'text';
@@ -2368,13 +2364,13 @@ function renderizarTabela(filtrados) {
         dataInput.oninput = function() { aplicarMascaraData(this); };
         dataInput.onchange = function() { salvarTodos(); };
         cellData.appendChild(dataInput);
-        
+
         var cellPrevisto = row.insertCell(3);
         var previstoSpan = document.createElement('span');
         previstoSpan.className = 'previsto-fixo';
         previstoSpan.innerHTML = formatar(valorPrevistoProporcional);
         cellPrevisto.appendChild(previstoSpan);
-        
+
         var cellRealizado = row.insertCell(4);
         var realizadoInput = document.createElement('input');
         var valorRealizado = isNaoIniciado ? 0 : ((d.realizado && d.realizado !== 0) ? d.realizado * fator : valorPrevistoProporcional);
@@ -2383,7 +2379,7 @@ function renderizarTabela(filtrados) {
         realizadoInput.id = 'realizado_' + d.med;
         realizadoInput.onchange = (function(med) { return function() { atualizarDiferenca(med); salvarTodos(); }; })(d.med);
         cellRealizado.appendChild(realizadoInput);
-        
+
         var cellDiferenca = row.insertCell(5);
         var diferencaSpan = document.createElement('span');
         diferencaSpan.id = 'diferenca_' + d.med;
@@ -2391,7 +2387,7 @@ function renderizarTabela(filtrados) {
         var diferenca = valorRealizadoCalcDif - (isNaoIniciado ? 0 : valorPrevistoProporcional);
         diferencaSpan.innerHTML = formatarDiferenca(diferenca, isNaoIniciado ? 1 : valorPrevistoProporcional);
         cellDiferenca.appendChild(diferencaSpan);
-        
+
         var cellReaj = row.insertCell(6);
         var reajInput = document.createElement('input');
         var valorReaj = isNaoIniciado ? 0 : ((d.reaj || 0) * fator);
@@ -2400,7 +2396,7 @@ function renderizarTabela(filtrados) {
         reajInput.id = 'reaj_' + d.med;
         reajInput.onchange = function() { salvarTodos(); };
         cellReaj.appendChild(reajInput);
-        
+
         var cellTotalAcumulado = row.insertCell(7);
         var totalAcumuladoSpan = document.createElement('span');
         var valorAcumulado = (d.acumulado || 0) * fator;
@@ -2408,7 +2404,7 @@ function renderizarTabela(filtrados) {
         totalAcumuladoSpan.className = 'acumulado-valor';
         totalAcumuladoSpan.id = 'acumulado_' + d.med;
         cellTotalAcumulado.appendChild(totalAcumuladoSpan);
-        
+
         var cellDespesa = row.insertCell(8);
         var despesaInput = document.createElement('input');
         var valorDespesa = isNaoIniciado ? 0 : ((d.despesa || 0) * fator);
@@ -2419,7 +2415,7 @@ function renderizarTabela(filtrados) {
         despesaInput.style.color = '#fd7e14';
         despesaInput.style.fontWeight = 'bold';
         cellDespesa.appendChild(despesaInput);
-        
+
         var cellNDG = row.insertCell(9);
         var ndgInput = document.createElement('input');
         ndgInput.type = 'number';
@@ -2433,7 +2429,7 @@ function renderizarTabela(filtrados) {
         ndgInput.id = 'ndg_' + d.med;
         ndgInput.onchange = (function(med) { return function() { atualizarDiferenca(med); salvarTodos(); }; })(d.med);
         cellNDG.appendChild(ndgInput);
-        
+
         var cellDesconto = row.insertCell(10);
         var descontoSpan = document.createElement('span');
         var valorBaseDesc = (valorPrevistoProporcional) + (isNaoIniciado ? 0 : (d.reaj || 0) * fator);
@@ -2443,7 +2439,7 @@ function renderizarTabela(filtrados) {
         descontoSpan.className = 'desconto-valor';
         descontoSpan.id = 'desconto_' + d.med;
         cellDesconto.appendChild(descontoSpan);
-        
+
         var cellStatus = row.insertCell(11);
         var statusSelect = document.createElement('select');
         statusSelect.id = 'status_' + d.med;
@@ -2456,7 +2452,7 @@ function renderizarTabela(filtrados) {
         }
         statusSelect.onchange = function() { salvarTodos(); };
         cellStatus.appendChild(statusSelect);
-        
+
         var cellObs = row.insertCell(12);
         var obsInput = document.createElement('input');
         obsInput.type = 'text';
@@ -2473,8 +2469,7 @@ function renderizarTabela(filtrados) {
 // ============================================================
 // 💾 SALVAR TUDO
 // ============================================================
-async function salvarTodos() {
-    // 1) Coleta os valores dos inputs para o array `dados`
+function salvarTodos() {
     for (var i = 0; i < dados.length; i++) {
         var med = dados[i].med;
         var dataInput = document.getElementById('data_' + med);
@@ -2484,13 +2479,12 @@ async function salvarTodos() {
         var obsInput = document.getElementById('obs_' + med);
         var realizadoInput = document.getElementById('realizado_' + med);
         var despesaInput = document.getElementById('despesa_' + med);
-        
+
         if (reajInput) {
             var dataValue = dataInput ? dataInput.value : '';
             dados[i].data = dataValue;
-            
             var temDataValida = dataValue && dataValue !== '' && isDataValida(dataValue);
-            
+
             if (!temDataValida) {
                 dados[i].reaj = 0;
                 dados[i].realizado = 0;
@@ -2512,17 +2506,12 @@ async function salvarTodos() {
             dados[i].totalLiq = dados[i].previsto + dados[i].reaj;
         }
     }
-    
-    // 2) Recalcula o acumulado
-    var dadosOrdenados = [...dados].sort(function(a, b) {
-        return parseInt(a.med) - parseInt(b.med);
-    });
+
+    var dadosOrdenados = [...dados].sort(function(a, b) { return parseInt(a.med) - parseInt(b.med); });
     var somaAcumulada = 0;
     for (var i = 0; i < dadosOrdenados.length; i++) {
         var temDataValida = dadosOrdenados[i].data && dadosOrdenados[i].data !== '' && isDataValida(dadosOrdenados[i].data);
-        if (temDataValida) {
-            somaAcumulada += dadosOrdenados[i].totalLiq;
-        }
+        if (temDataValida) somaAcumulada += dadosOrdenados[i].totalLiq;
         for (var j = 0; j < dados.length; j++) {
             if (parseInt(dados[j].med) === parseInt(dadosOrdenados[i].med)) {
                 dados[j].acumulado = somaAcumulada;
@@ -2530,16 +2519,11 @@ async function salvarTodos() {
             }
         }
     }
-    
-    // 3) Salva no Firebase
-    await salvarDados();
-    
-    // 4) Atualiza os cards e gráficos SEM recriar a tabela
-    atualizarCards(dados);
-    atualizarCardsEmpresas();
-    atualizarTotalSelecionado();
-    
+
+    salvarDadosFirebase(dados);
+    localStorage.setItem('medições_dados_v9_final', JSON.stringify(dados));
     mostrarStatus('Dados salvos!', true);
+    aplicarFiltros();
 }
 
 function aplicarFiltros() {
@@ -2548,9 +2532,8 @@ function aplicarFiltros() {
     var anoSelecionados = obterValoresDropdown('dropdownAno');
     var stSelecionados = obterValoresDropdown('dropdownStatus');
     var mostrar = document.getElementById('mostrarVazios') ? document.getElementById('mostrarVazios').checked : false;
-    
+
     var filtrados = dados.slice();
-    
     if (!mostrar) filtrados = filtrados.filter(function(d) { return d.data && d.data !== '' && isDataValida(d.data); });
     if (medSelecionados.length > 0) filtrados = filtrados.filter(function(d) { return medSelecionados.indexOf(d.med) !== -1; });
     if (perSelecionados.length > 0) filtrados = filtrados.filter(function(d) { return perSelecionados.indexOf(d.mes) !== -1; });
@@ -2559,12 +2542,10 @@ function aplicarFiltros() {
         var stNorm = stSelecionados.map(function(s) { return s === 'não_iniciado' ? 'nao_iniciado' : s; });
         filtrados = filtrados.filter(function(d) { return stNorm.indexOf(d.status) !== -1; });
     }
-    
+
     var fator = calcularFatorEmpresas();
-    if (fator > 0 && fator !== 1) {
-        filtrados = getFilteredDataByEmpresa(filtrados);
-    }
-    
+    if (fator > 0 && fator !== 1) filtrados = getFilteredDataByEmpresa(filtrados);
+
     atualizarBadges();
     renderizarTabela(filtrados);
     atualizarCardsEmpresas();
@@ -2572,9 +2553,7 @@ function aplicarFiltros() {
 }
 
 function limparFiltros() {
-    document.querySelectorAll('.dropdown-menu input[type="checkbox"]').forEach(function(cb) {
-        cb.checked = false;
-    });
+    document.querySelectorAll('.dropdown-menu input[type="checkbox"]').forEach(function(cb) { cb.checked = false; });
     var elMostrarVazios = document.getElementById('mostrarVazios');
     if (elMostrarVazios) elMostrarVazios.checked = false;
     atualizarBadges();
@@ -2586,9 +2565,7 @@ function filtrarStatus(st) {
     var container = document.getElementById('dropdownStatus');
     if (container) {
         var checkboxes = container.querySelectorAll('.option-item:not(.select-all) input[type="checkbox"]');
-        checkboxes.forEach(function(cb) {
-            cb.checked = (cb.value === st);
-        });
+        checkboxes.forEach(function(cb) { cb.checked = (cb.value === st); });
         var selectAll = container.querySelector('.select-all input[type="checkbox"]');
         if (selectAll) selectAll.checked = false;
     }
@@ -2596,7 +2573,7 @@ function filtrarStatus(st) {
 }
 
 // ============================================================
-// 📄 GERAR PDF (mantido igual)
+// 📄 GERAR PDF
 // ============================================================
 function gerarPDF() {
     salvarTodos();
@@ -2606,7 +2583,7 @@ function gerarPDF() {
     var anoSelecionados = obterValoresDropdown('dropdownAno');
     var stSelecionados = obterValoresDropdown('dropdownStatus');
     var mostrar = document.getElementById('mostrarVazios') ? document.getElementById('mostrarVazios').checked : false;
-    
+
     var filtrados = dados.slice();
     if (!mostrar) filtrados = filtrados.filter(function(d) { return d.data && d.data !== '' && isDataValida(d.data); });
     if (medSelecionados.length > 0) filtrados = filtrados.filter(function(d) { return medSelecionados.indexOf(d.med) !== -1; });
@@ -2642,12 +2619,8 @@ function gerarPDF() {
             var valDesc = baseDesc * (descPct / 100);
 
             var statusMap = {
-                'entregue': 'Entregue',
-                'aprovado': 'Aprovado',
-                'analise': 'Em Análise',
-                'pagamento': 'Em Pagamento',
-                'pago': 'Pago',
-                'nao_iniciado': 'Não Iniciado'
+                'entregue': 'Entregue', 'aprovado': 'Aprovado', 'analise': 'Em Análise',
+                'pagamento': 'Em Pagamento', 'pago': 'Pago', 'nao_iniciado': 'Não Iniciado'
             };
 
             row.insertCell(0).innerHTML = d.med;
@@ -2666,13 +2639,11 @@ function gerarPDF() {
     }
 
     document.getElementById('pdfDataGeracao').innerHTML = new Date().toLocaleDateString('pt-BR', {
-        day: '2-digit', month: '2-digit', year: 'numeric',
-        hour: '2-digit', minute: '2-digit'
+        day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
     });
 
     var pdfContainer = document.getElementById('pdfContainer');
     var containerPrincipal = document.getElementById('relatorioPDF');
-    
     containerPrincipal.style.display = 'none';
     pdfContainer.style.display = 'block';
 
@@ -2688,18 +2659,16 @@ function gerarPDF() {
 }
 
 // ============================================================
-// 📺 GERAR APRESENTAÇÃO (mantido igual)
+// 📺 GERAR APRESENTAÇÃO
 // ============================================================
 function gerarApresentacao() {
     salvarTodos();
-    
-    var dadosParaApresentacao = dados.filter(function(d) { 
-        return d.data && d.data !== '' && isDataValida(d.data); 
+
+    var dadosParaApresentacao = dados.filter(function(d) {
+        return d.data && d.data !== '' && isDataValida(d.data);
     });
-    
-    var dadosOrdenados = [...dadosParaApresentacao].sort(function(a, b) {
-        return parseInt(a.med) - parseInt(b.med);
-    });
+
+    var dadosOrdenados = [...dadosParaApresentacao].sort(function(a, b) { return parseInt(a.med) - parseInt(b.med); });
     var somaAcumulada = 0;
     for (var i = 0; i < dadosOrdenados.length; i++) {
         if (dadosOrdenados[i].data && dadosOrdenados[i].data !== '' && isDataValida(dadosOrdenados[i].data)) {
@@ -2707,37 +2676,34 @@ function gerarApresentacao() {
         }
         dadosOrdenados[i].acumulado = somaAcumulada;
     }
-    
+
     var empresasSel = JSON.parse(JSON.stringify(empresasSelecionadas));
     var valorPrevistoStr = valorPrevistoMensal.toLocaleString('pt-BR', {style:'currency', currency:'BRL'});
-    
+
     var mesesUnicos = [], anosUnicos = [];
     for (var i = 0; i < dadosOrdenados.length; i++) {
         if (mesesUnicos.indexOf(dadosOrdenados[i].mes) === -1) mesesUnicos.push(dadosOrdenados[i].mes);
         var ano = dadosOrdenados[i].mes.split('/')[1];
         if (anosUnicos.indexOf(ano) === -1) anosUnicos.push(ano);
     }
-    
+
     mesesUnicos.sort(function(a, b) {
-        var aAno = parseInt(a.split('/')[1]);
-        var bAno = parseInt(b.split('/')[1]);
+        var aAno = parseInt(a.split('/')[1]), bAno = parseInt(b.split('/')[1]);
         if (aAno !== bAno) return aAno - bAno;
-        var meses = {jan:1, fev:2, mar:3, abr:4, mai:5, jun:6, jul:7, ago:8, set:9, out:10, nov:11, dez:12};
-        var aMes = meses[a.split('/')[0]];
-        var bMes = meses[b.split('/')[0]];
-        return aMes - bMes;
+        var meses = {jan:1,fev:2,mar:3,abr:4,mai:5,jun:6,jul:7,ago:8,set:9,out:10,nov:11,dez:12};
+        return meses[a.split('/')[0]] - meses[b.split('/')[0]];
     });
-    
+
     anosUnicos.sort();
-    
+
     var optionsMeses = '<option value="todos">Todos os meses</option>';
     for (var i = 0; i < mesesUnicos.length; i++) optionsMeses += '<option value="' + mesesUnicos[i] + '">' + mesesUnicos[i] + '</option>';
-    
+
     var optionsAnos = '<option value="todos">Todos os Anos</option>';
     for (var i = 0; i < anosUnicos.length; i++) optionsAnos += '<option value="' + anosUnicos[i] + '">' + anosUnicos[i] + '</option>';
-    
+
     var chartTypeToUse = currentChartType;
-    
+
     var html = '<!DOCTYPE html>\n<html lang="pt-BR">\n<head>\n<meta charset="UTF-8">\n<title>Dashboard - Apresentação</title>\n' +
 '<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"><\/script>\n' +
 '<style>\n' +
@@ -2939,7 +2905,7 @@ function gerarApresentacao() {
 'function initKPIs(){var total=dadosOriginais.length;var statsIniciais={entregue:0,aprovado:0,analise:0,pagamento:0,pago:0,nao_iniciado:0};for(var i=0;i<dadosOriginais.length;i++)statsIniciais[dadosOriginais[i].status]++;var html="<div class=\\"kpi-card kpi-entregue\\" onclick=\\"filtrarStatus(\'entregue\')\\" style=\\"cursor:pointer\\"><div class=\\"card-icon\\">📦</div><h3 id=\\"totalEntregue\\">"+statsIniciais.entregue+"</h3><p>Entregues</p><small id=\\"pEntregue\\">"+((statsIniciais.entregue/total)*100).toFixed(1)+"%</small></div>"+"<div class=\\"kpi-card kpi-aprovado\\" onclick=\\"filtrarStatus(\'aprovado\')\\" style=\\"cursor:pointer\\"><div class=\\"card-icon\\">✅</div><h3 id=\\"totalAprovado\\">"+statsIniciais.aprovado+"</h3><p>Aprovados</p><small id=\\"pAprovado\\">"+((statsIniciais.aprovado/total)*100).toFixed(1)+"%</small></div>"+"<div class=\\"kpi-card kpi-analise\\" onclick=\\"filtrarStatus(\'analise\')\\" style=\\"cursor:pointer\\"><div class=\\"card-icon\\">⏳</div><h3 id=\\"totalAnalise\\">"+statsIniciais.analise+"</h3><p>Em Análise</p><small id=\\"pAnalise\\">"+((statsIniciais.analise/total)*100).toFixed(1)+"%</small></div>"+"<div class=\\"kpi-card kpi-pagamento\\" onclick=\\"filtrarStatus(\'pagamento\')\\" style=\\"cursor:pointer\\"><div class=\\"card-icon\\">💰</div><h3 id=\\"totalPagamento\\">"+statsIniciais.pagamento+"</h3><p>Em Pagamento</p><small id=\\"pPagamento\\">"+((statsIniciais.pagamento/total)*100).toFixed(1)+"%</small></div>"+"<div class=\\"kpi-card kpi-pago\\" onclick=\\"filtrarStatus(\'pago\')\\" style=\\"cursor:pointer\\"><div class=\\"card-icon\\">💵</div><h3 id=\\"totalPago\\">"+statsIniciais.pago+"</h3><p>Pagos</p><small id=\\"pPago\\">"+((statsIniciais.pago/total)*100).toFixed(1)+"%</small></div>"+"<div class=\\"kpi-card kpi-nao-iniciado\\" onclick=\\"filtrarStatus(\'nao_iniciado\')\\" style=\\"cursor:pointer\\"><div class=\\"card-icon\\">🚫</div><h3 id=\\"totalNao\\">"+statsIniciais.nao_iniciado+"</h3><p>Não Iniciados</p><small id=\\"pNao\\">"+((statsIniciais.nao_iniciado/total)*100).toFixed(1)+"%</small></div>";document.getElementById("kpiGrid").innerHTML=html;}\n' +
 'initKPIs();renderizarEmpresas();aplicarFiltros();\n' +
 '<\/script>\n</body>\n</html>';
-    
+
     var blob = new Blob([html], {type: 'text/html'});
     var a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -2950,14 +2916,19 @@ function gerarApresentacao() {
 }
 
 // ============================================================
-// 🚀 INICIALIZAÇÃO
+// 🔐 OBSERVADOR DE ESTADO DE AUTENTICAÇÃO
 // ============================================================
 auth.onAuthStateChanged(function(user) {
     if (user) {
         document.getElementById('loginOverlay').classList.add('hidden');
         document.getElementById('relatorioPDF').style.display = 'block';
-        document.getElementById('usuarioNome').textContent = localStorage.getItem('usuarioLogado') || 'dev1';
+        const username = user.email.split('@')[0];
+        document.getElementById('usuarioNome').textContent = username;
         carregarDados();
+    } else {
+        document.getElementById('relatorioPDF').style.display = 'none';
+        document.getElementById('loginOverlay').classList.remove('hidden');
+        dadosCarregados = false;
     }
 });
 
