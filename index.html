@@ -4,8 +4,7 @@
     <meta charset="UTF-8">
     <title>Relatório de Medições</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pocketbase@0.25.0/dist/pocketbase.umd.js"></script>
 
     <style>
     /* ===== ESTILOS ORIGINAIS (mantidos) ===== */
@@ -1306,67 +1305,18 @@
 </div>
 <script>
 // ============================================================
-// 🔥 CONFIGURAÇÃO DO FIREBASE
+// 🔥 CONFIGURAÇÃO DO POCKETBASE
 // ============================================================
-// ⚠️ SUBSTITUA ESTES VALORES PELOS SEUS!
-// ============================================================
-const firebaseConfig = {
-  apiKey: "AIzaSyCVoan1YN_9mcSsJiR6HvbVnSA66GgKriY",
-  authDomain: "dashboard-medicoes.firebaseapp.com",
-  projectId: "dashboard-medicoes",
-  storageBucket: "dashboard-medicoes.firebasestorage.app",
-  messagingSenderId: "144117389070",
-  appId: "1:144117389070:web:6292808c40858653bc295f"
-};
+const PB_URL = 'https://pocketbase-production-6e7a.up.railway.app';
+const pb = new PocketBase(PB_URL);
 
-// Inicializa o Firebase
-firebase.initializeApp(firebaseConfig);
-const database = firebase.database();
-
-// ============================================================
-// 📊 REFERÊNCIAS NO BANCO DE DADOS
-// ============================================================
-const REF_MEDICOES = 'medicoes';
-const REF_EMPRESAS = 'empresas';
-const REF_CONFIG = 'config';
-
-// ============================================================
-// 🔐 USUÁRIOS E SENHAS (CRIPTOGRAFADAS)
-// ============================================================
-const CHAVE_SECRETA = 'AssessorDNIT2025@#';
-
-function criptografar(texto) {
-    let resultado = '';
-    for (let i = 0; i < texto.length; i++) {
-        const charCode = texto.charCodeAt(i) + CHAVE_SECRETA.charCodeAt(i % CHAVE_SECRETA.length);
-        resultado += String.fromCharCode(charCode);
-    }
-    return btoa(resultado);
-}
-
-function descriptografar(textoCriptografado) {
-    try {
-        const texto = atob(textoCriptografado);
-        let resultado = '';
-        for (let i = 0; i < texto.length; i++) {
-            const charCode = texto.charCodeAt(i) - CHAVE_SECRETA.charCodeAt(i % CHAVE_SECRETA.length);
-            resultado += String.fromCharCode(charCode);
-        }
-        return resultado;
-    } catch(e) {
-        return '';
-    }
-}
-
-const usuariosAutorizados = {
-    'dev1': { senha: criptografar('Phmc@131416') },
-    'arnaldo_cunha': { senha: criptografar('consorcio_dnit') }
-};
+// Desabilita auto-cancelamento para não conflitar com múltiplas requisições
+pb.autoCancellation(false);
 
 // ============================================================
 // 🔐 FUNÇÕES DE LOGIN
 // ============================================================
-function fazerLogin(event) {
+async function fazerLogin(event) {
     event.preventDefault();
     
     const username = document.getElementById('username').value.trim();
@@ -1381,33 +1331,27 @@ function fazerLogin(event) {
         return false;
     }
     
-    if (!usuariosAutorizados[username]) {
-        errorEl.textContent = '❌ Usuário não encontrado!';
-        errorEl.classList.add('show');
-        return false;
-    }
-    
-    const senhaDescriptografada = descriptografar(usuariosAutorizados[username].senha);
-    
-    if (password === senhaDescriptografada) {
+    try {
+        await pb.collection('usuarios').authWithPassword(username, password);
+        
         localStorage.setItem('usuarioLogado', username);
         localStorage.setItem('sessaoAtiva', 'true');
         document.getElementById('usuarioNome').textContent = username;
         document.getElementById('loginOverlay').classList.add('hidden');
         document.getElementById('relatorioPDF').style.display = 'block';
         
-        if (typeof carregarDados === 'function') {
-            carregarDados();
-        }
+        await carregarDados();
         return true;
-    } else {
-        errorEl.textContent = '❌ Senha incorreta!';
+    } catch (erro) {
+        console.error('Erro no login:', erro);
+        errorEl.textContent = '❌ Usuário ou senha inválidos!';
         errorEl.classList.add('show');
         return false;
     }
 }
 
 function fazerLogout() {
+    pb.authStore.clear();
     localStorage.removeItem('sessaoAtiva');
     localStorage.removeItem('usuarioLogado');
     document.getElementById('relatorioPDF').style.display = 'none';
@@ -1431,15 +1375,6 @@ function toggleSenha() {
         toggleBtn.textContent = '👁️';
         toggleBtn.title = 'Mostrar senha';
     }
-}
-
-// ============================================================
-// 🔐 VERIFICAÇÃO DE SESSÃO
-// ============================================================
-if (localStorage.getItem('sessaoAtiva') === 'true') {
-    document.getElementById('loginOverlay').classList.add('hidden');
-    document.getElementById('relatorioPDF').style.display = 'block';
-    document.getElementById('usuarioNome').textContent = localStorage.getItem('usuarioLogado') || 'dev1';
 }
 
 // ============================================================
@@ -1489,7 +1424,7 @@ var statusOptions = [
 ];
 
 // ============================================================
-// 🔥 FUNÇÕES DO FIREBASE
+// 🔥 GERAÇÃO DE DADOS INICIAIS (mesma lógica do original)
 // ============================================================
 function gerarDadosIniciais() {
     var meses = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
@@ -1557,198 +1492,145 @@ function gerarDadosIniciais() {
 }
 
 // ============================================================
-// 🔥 SALVAR DADOS NO FIREBASE
+// 🔥 CARREGAR DADOS DO POCKETBASE
 // ============================================================
-function salvarDadosFirebase(dadosParaSalvar) {
+async function carregarDados() {
+    if (dadosCarregados) return;
+    
+    mostrarStatus('🔄 Carregando dados...', true);
+    
+    try {
+        const registros = await pb.collection('medicoes').getFullList({
+            sort: 'med'
+        });
+        
+        if (registros && registros.length > 0) {
+            dados = registros.map(function(r) {
+                return {
+                    med: r.med,
+                    mes: r.mes,
+                    data: r.data || '',
+                    previsto: r.previsto || 0,
+                    realizado: r.realizado || 0,
+                    reaj: r.reaj || 0,
+                    ndg: r.ndg || 0,
+                    despesa: r.despesa || 0,
+                    status: r.status || 'nao_iniciado',
+                    obs: r.obs || '',
+                    totalLiq: r.totalLiq || 0,
+                    acumulado: r.acumulado || 0,
+                    pbId: r.id
+                };
+            });
+            dadosCarregados = true;
+            mostrarStatus('✅ Dados carregados!', true);
+        } else {
+            // Primeira vez - gera e salva dados iniciais
+            mostrarStatus('📥 Primeiro acesso! Criando dados iniciais...', true);
+            dados = gerarDadosIniciais();
+            dadosCarregados = true;
+            await salvarDados();
+        }
+        
+        // Seleciona todas as empresas por padrão
+        document.querySelectorAll('.empresa-btn').forEach(function(btn) {
+            var empresa = btn.getAttribute('data-empresa');
+            empresasSelecionadas[empresa] = true;
+            btn.classList.add('selecionado');
+        });
+        
+        // Inicia sincronização em tempo real
+        iniciarSincronizacao();
+        
+        initSelects();
+        atualizarCardsEmpresas();
+        atualizarTotalSelecionado();
+        aplicarFiltros();
+        
+    } catch (erro) {
+        console.error('Erro ao carregar:', erro);
+        mostrarStatus('❌ Erro ao carregar dados.', false);
+    }
+}
+
+// ============================================================
+// 🔥 SALVAR DADOS NO POCKETBASE
+// ============================================================
+async function salvarDados() {
     if (salvando) return;
     salvando = true;
     
-    const updates = {};
-    const empresas = {};
-    
-    for (var i = 0; i < dadosParaSalvar.length; i++) {
-        const d = dadosParaSalvar[i];
-        updates[REF_MEDICOES + '/' + d.med] = {
-            med: d.med,
-            mes: d.mes,
-            data: d.data || '',
-            previsto: d.previsto || 0,
-            realizado: d.realizado || 0,
-            reaj: d.reaj || 0,
-            ndg: d.ndg || 0,
-            despesa: d.despesa || 0,
-            status: d.status || 'nao_iniciado',
-            obs: d.obs || '',
-            totalLiq: d.totalLiq || 0,
-            acumulado: d.acumulado || 0
-        };
-    }
-    
-    for (var emp in empresasSelecionadas) {
-        if (empresasSelecionadas[emp]) {
-            empresas[emp] = true;
-        }
-    }
-    
-    updates[REF_EMPRESAS] = empresas;
-    updates[REF_CONFIG + '/ultimaAtualizacao'] = new Date().toISOString();
-    updates[REF_CONFIG + '/usuario'] = localStorage.getItem('usuarioLogado') || 'desconhecido';
-    
-    database.ref().update(updates)
-        .then(function() {
-            salvando = false;
-            mostrarStatus('✅ Dados salvos no Firebase!', true);
-        })
-        .catch(function(error) {
-            salvando = false;
-            mostrarStatus('❌ Erro ao salvar: ' + error.message, false);
-            console.error('Erro Firebase:', error);
-        });
-}
-
-// ============================================================
-// 🔥 CARREGAR DADOS DO FIREBASE
-// ============================================================
-function carregarDados() {
-    if (dadosCarregados) return;
-    
-    mostrarStatus('🔄 Carregando dados do Firebase...', true);
-    
-    database.ref(REF_MEDICOES).once('value')
-        .then(function(snapshot) {
-            const dadosFirebase = snapshot.val();
+    try {
+        for (var i = 0; i < dados.length; i++) {
+            var d = dados[i];
+            var payload = {
+                med: d.med,
+                mes: d.mes,
+                data: d.data || '',
+                previsto: d.previsto || 0,
+                realizado: d.realizado || 0,
+                reaj: d.reaj || 0,
+                ndg: d.ndg || 0,
+                despesa: d.despesa || 0,
+                status: d.status || 'nao_iniciado',
+                obs: d.obs || '',
+                totalLiq: d.totalLiq || 0,
+                acumulado: d.acumulado || 0
+            };
             
-            if (dadosFirebase) {
-                // Converte objeto em array
-                const dadosTemp = [];
-                for (var key in dadosFirebase) {
-                    if (dadosFirebase.hasOwnProperty(key)) {
-                        const item = dadosFirebase[key];
-                        item.med = key;
-                        dadosTemp.push(item);
-                    }
-                }
-                
-                // Ordena por med
-                dadosTemp.sort(function(a, b) {
-                    return parseInt(a.med) - parseInt(b.med);
-                });
-                
-                dados = dadosTemp;
-                dadosCarregados = true;
-                
-                // Carrega empresas selecionadas
-                database.ref(REF_EMPRESAS).once('value')
-                    .then(function(snapEmpresas) {
-                        const empresasFirebase = snapEmpresas.val();
-                        if (empresasFirebase) {
-                            for (var emp in empresasFirebase) {
-                                if (empresasFirebase[emp]) {
-                                    empresasSelecionadas[emp] = true;
-                                }
-                            }
-                            // Atualiza os botões
-                            document.querySelectorAll('.empresa-btn').forEach(function(btn) {
-                                const empresa = btn.getAttribute('data-empresa');
-                                if (empresasSelecionadas[empresa]) {
-                                    btn.classList.add('selecionado');
-                                } else {
-                                    btn.classList.remove('selecionado');
-                                }
-                            });
-                        }
-                    })
-                    .catch(function() {
-                        // Fallback
-                        document.querySelectorAll('.empresa-btn').forEach(function(btn) {
-                            const empresa = btn.getAttribute('data-empresa');
-                            empresasSelecionadas[empresa] = true;
-                            btn.classList.add('selecionado');
-                        });
-                    });
-                
-                mostrarStatus('✅ Dados carregados do Firebase!', true);
-                initSelects();
-                atualizarCardsEmpresas();
-                atualizarTotalSelecionado();
-                aplicarFiltros();
+            if (d.pbId) {
+                await pb.collection('medicoes').update(d.pbId, payload);
             } else {
-                // Primeira vez - salva dados iniciais
-                mostrarStatus('📥 Primeiro acesso! Salvando dados iniciais...', true);
-                dados = gerarDadosIniciais();
-                dadosCarregados = true;
-                
-                // Seleciona todas as empresas
-                document.querySelectorAll('.empresa-btn').forEach(function(btn) {
-                    const empresa = btn.getAttribute('data-empresa');
-                    empresasSelecionadas[empresa] = true;
-                    btn.classList.add('selecionado');
-                });
-                
-                salvarDadosFirebase(dados);
-                initSelects();
-                atualizarCardsEmpresas();
-                atualizarTotalSelecionado();
-                aplicarFiltros();
+                var novo = await pb.collection('medicoes').create(payload);
+                d.pbId = novo.id;
             }
-        })
-        .catch(function(error) {
-            console.error('Erro ao carregar do Firebase:', error);
-            mostrarStatus('❌ Erro ao carregar dados. Usando dados locais.', false);
-            // Fallback para localStorage
-            carregarDadosLocal();
-        });
-}
-
-// ============================================================
-// 📊 FALLBACK - CARREGAR DADOS DO LOCALSTORAGE
-// ============================================================
-function carregarDadosLocal() {
-    var salvos = localStorage.getItem('medições_dados_v9_final');
-    if (salvos) {
-        try {
-            dados = JSON.parse(salvos);
-            for (var i = 0; i < dados.length; i++) {
-                if (typeof dados[i].obs === 'undefined') dados[i].obs = '';
-                if (typeof dados[i].reaj === 'undefined') dados[i].reaj = 0;
-                if (typeof dados[i].despesa === 'undefined') dados[i].despesa = 0;
-                if (typeof dados[i].acumulado === 'undefined') dados[i].acumulado = 0;
-                if (typeof dados[i].ndg === 'undefined') dados[i].ndg = 0;
-                dados[i].previsto = valorPrevistoMensal;
-                dados[i].totalLiq = dados[i].previsto + (dados[i].reaj || 0);
-                if (dados[i].data === '-' || dados[i].data === '---') {
-                    dados[i].data = '';
-                }
-            }
-            var somaAcumulada = 0;
-            for (var i = 0; i < dados.length; i++) {
-                if (dados[i].data && dados[i].data !== '' && isDataValida(dados[i].data)) {
-                    somaAcumulada += dados[i].totalLiq;
-                }
-                dados[i].acumulado = somaAcumulada;
-            }
-            mostrarStatus('Dados carregados do localStorage!', true);
-        } catch(e) {
-            dados = gerarDadosIniciais();
         }
-    } else {
-        dados = gerarDadosIniciais();
-        mostrarStatus('Dados iniciais carregados!', true);
+        
+        salvando = false;
+        mostrarStatus('✅ Dados salvos!', true);
+    } catch (erro) {
+        salvando = false;
+        console.error('Erro ao salvar:', erro);
+        mostrarStatus('❌ Erro ao salvar: ' + erro.message, false);
     }
-    
-    initSelects();
-    document.querySelectorAll('.empresa-btn').forEach(function(btn) {
-        var empresa = btn.getAttribute('data-empresa');
-        empresasSelecionadas[empresa] = true;
-        btn.classList.add('selecionado');
-    });
-    atualizarCardsEmpresas();
-    atualizarTotalSelecionado();
-    aplicarFiltros();
 }
 
 // ============================================================
-// 🔧 FUNÇÕES AUXILIARES (mantidas do original)
+// 🔥 SINCRONIZAÇÃO EM TEMPO REAL
+// ============================================================
+var inscricaoAtiva = null;
+
+function iniciarSincronizacao() {
+    if (inscricaoAtiva) return;
+    
+    inscricaoAtiva = pb.collection('medicoes').subscribe('*', function(e) {
+        console.log('Mudança detectada:', e.action);
+        // Recarrega os dados sem mostrar mensagem de carregamento
+        pb.collection('medicoes').getFullList({ sort: 'med' }).then(function(registros) {
+            dados = registros.map(function(r) {
+                return {
+                    med: r.med,
+                    mes: r.mes,
+                    data: r.data || '',
+                    previsto: r.previsto || 0,
+                    realizado: r.realizado || 0,
+                    reaj: r.reaj || 0,
+                    ndg: r.ndg || 0,
+                    despesa: r.despesa || 0,
+                    status: r.status || 'nao_iniciado',
+                    obs: r.obs || '',
+                    totalLiq: r.totalLiq || 0,
+                    acumulado: r.acumulado || 0,
+                    pbId: r.id
+                };
+            });
+            aplicarFiltros();
+        });
+    });
+}
+
+// ============================================================
+// 🔧 FUNÇÕES AUXILIARES
 // ============================================================
 function isDataValida(dataStr) {
     if (!dataStr || dataStr.length !== 10) return false;
@@ -1912,7 +1794,7 @@ function mostrarStatus(mensagem, sucesso) {
 }
 
 // ============================================================
-// 📊 FUNÇÕES DE DROPDOWN
+// 📊 FUNÇÕES DE DROPDOWN (mantidas iguais)
 // ============================================================
 function toggleDropdown(id) {
     var menu = document.getElementById(id);
@@ -2075,7 +1957,7 @@ function initSelects() {
 }
 
 // ============================================================
-// 📊 FUNÇÕES DE FILTRO E RENDERIZAÇÃO
+// 📊 CÁLCULOS E RENDERIZAÇÃO
 // ============================================================
 function calcularTotalComFiltros() {
     var medSelecionados = obterValoresDropdown('dropdownMedicao');
@@ -2160,8 +2042,6 @@ function toggleEmpresa(botao) {
     atualizarCardsEmpresas();
     atualizarTotalSelecionado();
     aplicarFiltros();
-    // Salva a seleção de empresas no Firebase
-    salvarDadosFirebase(dados);
 }
 
 function atualizarCards(filtrados) {
@@ -2209,29 +2089,7 @@ function atualizarCards(filtrados) {
     document.getElementById('pPago').textContent = pct(stats.pago, total);
     document.getElementById('pNao').textContent = pct(stats.nao_iniciado, total);
     
-    var filtroMedicao = document.getElementById('filtroMedicao') ? document.getElementById('filtroMedicao').value : 'todos';
-    var filtroPeriodo = document.getElementById('filtroPeriodo') ? document.getElementById('filtroPeriodo').value : 'todos';
-    var filtroAno = document.getElementById('filtroAno') ? document.getElementById('filtroAno').value : 'todos';
-    
-    var totalAcumulado = 0;
-    
-    if (filtroMedicao !== 'todos') {
-        var medNum = parseInt(filtroMedicao);
-        totalAcumulado = somarRealizadoPagoAteMedicao(medNum);
-    } 
-    else if (filtroPeriodo !== 'todos') {
-        var medNumAteMes = getMedicaoNumByMes(filtroPeriodo);
-        if (medNumAteMes) {
-            totalAcumulado = somarRealizadoPagoAteMedicao(medNumAteMes);
-        }
-    }
-    else if (filtroAno !== 'todos') {
-        totalAcumulado = somarRealizadoPagoAteAno(parseInt(filtroAno));
-    }
-    else {
-        totalAcumulado = calcularTotalComFiltros();
-    }
-    
+    var totalAcumulado = calcularTotalComFiltros();
     var fator = calcularFatorEmpresas();
     totalAcumulado = totalAcumulado * fator;
     
@@ -2246,7 +2104,6 @@ function atualizarCards(filtrados) {
     
     atualizarGraficoFinanceiro();
     atualizarGraficoAcumulado(filtrados);
-    
     atualizarCardsEmpresas();
     atualizarTotalSelecionado();
 }
@@ -2255,17 +2112,16 @@ function atualizarGraficoFinanceiro() {
     var fator = calcularFatorEmpresas();
     if (fator === 0) fator = 1;
     
-    var filtroMedicao = document.getElementById('filtroMedicao') ? document.getElementById('filtroMedicao').value : 'todos';
-    var filtroPeriodo = document.getElementById('filtroPeriodo') ? document.getElementById('filtroPeriodo').value : 'todos';
-    var filtroAno = document.getElementById('filtroAno') ? document.getElementById('filtroAno').value : 'todos';
+    var medSelecionados = obterValoresDropdown('dropdownMedicao');
+    var perSelecionados = obterValoresDropdown('dropdownPeriodo');
+    var anoSelecionados = obterValoresDropdown('dropdownAno');
     var mostrarVazios = document.getElementById('mostrarVazios') ? document.getElementById('mostrarVazios').checked : false;
     
     var dadosFiltrados = dados.slice();
-    
     if (!mostrarVazios) dadosFiltrados = dadosFiltrados.filter(function(d) { return d.data && d.data !== '' && isDataValida(d.data); });
-    if (filtroMedicao !== 'todos') dadosFiltrados = dadosFiltrados.filter(function(d) { return d.med === filtroMedicao; });
-    if (filtroPeriodo !== 'todos') dadosFiltrados = dadosFiltrados.filter(function(d) { return d.mes === filtroPeriodo; });
-    if (filtroAno !== 'todos') dadosFiltrados = dadosFiltrados.filter(function(d) { return extrairAno(d.mes) === filtroAno; });
+    if (medSelecionados.length > 0) dadosFiltrados = dadosFiltrados.filter(function(d) { return medSelecionados.indexOf(d.med) !== -1; });
+    if (perSelecionados.length > 0) dadosFiltrados = dadosFiltrados.filter(function(d) { return perSelecionados.indexOf(d.mes) !== -1; });
+    if (anoSelecionados.length > 0) dadosFiltrados = dadosFiltrados.filter(function(d) { return anoSelecionados.indexOf(extrairAno(d.mes)) !== -1; });
     
     dadosFiltrados = getFilteredDataByEmpresa(dadosFiltrados);
     
@@ -2290,87 +2146,17 @@ function atualizarGraficoFinanceiro() {
     
     if (currentChartType === 'line') {
         datasets = [
-            {
-                label: 'Realizado (R$)',
-                data: realizados,
-                borderColor: '#17a2b8',
-                backgroundColor: 'rgba(23, 162, 184, 0.05)',
-                borderWidth: 3,
-                fill: false,
-                tension: 0.3,
-                pointRadius: 5,
-                pointBackgroundColor: '#17a2b8',
-                pointBorderColor: 'white'
-            },
-            {
-                label: 'Despesas (R$) - Área',
-                data: despesas,
-                borderColor: '#fd7e14',
-                backgroundColor: 'rgba(253, 126, 20, 0.3)',
-                borderWidth: 2,
-                fill: true,
-                tension: 0.3,
-                pointRadius: 4,
-                pointBackgroundColor: '#fd7e14',
-                pointBorderColor: 'white'
-            },
-            {
-                label: 'Desconto (R$) - base Previsto+Reaj',
-                data: descontos,
-                borderColor: '#dc3545',
-                backgroundColor: 'transparent',
-                borderWidth: 2,
-                borderDash: [8, 4],
-                fill: false,
-                tension: 0.3,
-                pointRadius: 4,
-                pointBackgroundColor: '#dc3545',
-                pointBorderColor: 'white'
-            },
-            {
-                label: 'Previsto (R$)',
-                data: previstos,
-                borderColor: '#6c757d',
-                backgroundColor: 'transparent',
-                borderWidth: 2,
-                borderDash: [5, 5],
-                fill: false,
-                tension: 0.3,
-                pointRadius: 3,
-                pointBackgroundColor: '#6c757d',
-                pointBorderColor: 'white'
-            }
+            { label: 'Realizado (R$)', data: realizados, borderColor: '#17a2b8', backgroundColor: 'rgba(23, 162, 184, 0.05)', borderWidth: 3, fill: false, tension: 0.3, pointRadius: 5, pointBackgroundColor: '#17a2b8', pointBorderColor: 'white' },
+            { label: 'Despesas (R$) - Área', data: despesas, borderColor: '#fd7e14', backgroundColor: 'rgba(253, 126, 20, 0.3)', borderWidth: 2, fill: true, tension: 0.3, pointRadius: 4, pointBackgroundColor: '#fd7e14', pointBorderColor: 'white' },
+            { label: 'Desconto (R$) - base Previsto+Reaj', data: descontos, borderColor: '#dc3545', backgroundColor: 'transparent', borderWidth: 2, borderDash: [8, 4], fill: false, tension: 0.3, pointRadius: 4, pointBackgroundColor: '#dc3545', pointBorderColor: 'white' },
+            { label: 'Previsto (R$)', data: previstos, borderColor: '#6c757d', backgroundColor: 'transparent', borderWidth: 2, borderDash: [5, 5], fill: false, tension: 0.3, pointRadius: 3, pointBackgroundColor: '#6c757d', pointBorderColor: 'white' }
         ];
-    } else if (currentChartType === 'bar') {
+    } else {
         datasets = [
-            {
-                label: 'Realizado (R$)',
-                data: realizados,
-                backgroundColor: 'rgba(23, 162, 184, 0.7)',
-                borderColor: '#17a2b8',
-                borderWidth: 2
-            },
-            {
-                label: 'Despesas (R$)',
-                data: despesas,
-                backgroundColor: 'rgba(253, 126, 20, 0.7)',
-                borderColor: '#fd7e14',
-                borderWidth: 2
-            },
-            {
-                label: 'Desconto (R$) - base Previsto+Reaj',
-                data: descontos,
-                backgroundColor: 'rgba(220, 53, 69, 0.7)',
-                borderColor: '#dc3545',
-                borderWidth: 2
-            },
-            {
-                label: 'Previsto (R$)',
-                data: previstos,
-                backgroundColor: 'rgba(108, 117, 125, 0.7)',
-                borderColor: '#6c757d',
-                borderWidth: 2
-            }
+            { label: 'Realizado (R$)', data: realizados, backgroundColor: 'rgba(23, 162, 184, 0.7)', borderColor: '#17a2b8', borderWidth: 2 },
+            { label: 'Despesas (R$)', data: despesas, backgroundColor: 'rgba(253, 126, 20, 0.7)', borderColor: '#fd7e14', borderWidth: 2 },
+            { label: 'Desconto (R$) - base Previsto+Reaj', data: descontos, backgroundColor: 'rgba(220, 53, 69, 0.7)', borderColor: '#dc3545', borderWidth: 2 },
+            { label: 'Previsto (R$)', data: previstos, backgroundColor: 'rgba(108, 117, 125, 0.7)', borderColor: '#6c757d', borderWidth: 2 }
         ];
     }
     
@@ -2391,10 +2177,7 @@ function atualizarGraficoFinanceiro() {
                 }
             },
             scales: {
-                y: {
-                    beginAtZero: true,
-                    ticks: { callback: function(v) { return 'R$ ' + (v/1000000).toFixed(1) + 'M'; } }
-                }
+                y: { beginAtZero: true, ticks: { callback: function(v) { return 'R$ ' + (v/1000000).toFixed(1) + 'M'; } } }
             }
         }
     };
@@ -2410,11 +2193,7 @@ function atualizarGraficoAcumulado(filtrados) {
     var fator = calcularFatorEmpresas();
     if (fator === 0) fator = 1;
     
-    var filtroMedicao = document.getElementById('filtroMedicao') ? document.getElementById('filtroMedicao').value : 'todos';
-    var filtroPeriodo = document.getElementById('filtroPeriodo') ? document.getElementById('filtroPeriodo').value : 'todos';
-    var filtroAno = document.getElementById('filtroAno') ? document.getElementById('filtroAno').value : 'todos';
-    
-    var temFiltroEspecifico = (filtroMedicao !== 'todos') || (filtroPeriodo !== 'todos') || (filtroAno !== 'todos');
+    var temFiltroEspecifico = obterValoresDropdown('dropdownMedicao').length > 0 || obterValoresDropdown('dropdownPeriodo').length > 0 || obterValoresDropdown('dropdownAno').length > 0;
     
     var dadosParaGrafico = filtrados.filter(function(d) {
         return d.data && d.data !== '' && isDataValida(d.data);
@@ -2445,15 +2224,11 @@ function atualizarGraficoAcumulado(filtrados) {
     if (!temFiltroEspecifico) {
         legendaTexto = '📊 Valores ACUMULADOS (visão geral) - Linha pontilhada = apenas PAGO';
         
-        var somaRealizado = 0;
-        var somaPrevisto = 0;
-        var somaRealizadoPago = 0;
+        var somaRealizado = 0, somaPrevisto = 0, somaRealizadoPago = 0;
         
         for (var i = 0; i < mesesOrdenados.length; i++) {
             var mes = mesesOrdenados[i];
-            var realizadoMes = 0;
-            var previstoMes = 0;
-            var realizadoPagoMes = 0;
+            var realizadoMes = 0, previstoMes = 0, realizadoPagoMes = 0;
             
             for (var j = 0; j < dadosParaGrafico.length; j++) {
                 if (dadosParaGrafico[j].mes === mes) {
@@ -2476,9 +2251,7 @@ function atualizarGraficoAcumulado(filtrados) {
         
         for (var i = 0; i < mesesOrdenados.length; i++) {
             var mes = mesesOrdenados[i];
-            var realizadoMes = 0;
-            var previstoMes = 0;
-            var realizadoPagoMes = 0;
+            var realizadoMes = 0, previstoMes = 0, realizadoPagoMes = 0;
             
             for (var j = 0; j < dadosParaGrafico.length; j++) {
                 if (dadosParaGrafico[j].mes === mes) {
@@ -2509,50 +2282,16 @@ function atualizarGraficoAcumulado(filtrados) {
         data: {
             labels: labels,
             datasets: [
-                {
-                    label: !temFiltroEspecifico ? 'Realizado Acumulado (R$)' : 'Realizado (R$)',
-                    data: dadosRealizado,
-                    borderColor: '#17a2b8',
-                    backgroundColor: 'rgba(23, 162, 184, 0.1)',
-                    borderWidth: 3,
-                    fill: true,
-                    tension: 0.3,
-                    pointRadius: 5,
-                    pointBackgroundColor: '#17a2b8',
-                    pointBorderColor: 'white'
-                },
-                {
-                    label: !temFiltroEspecifico ? 'Previsto Acumulado (R$)' : 'Previsto (R$)',
-                    data: dadosPrevisto,
-                    borderColor: '#6c757d',
-                    backgroundColor: 'transparent',
-                    borderWidth: 2,
-                    borderDash: [5, 5],
-                    pointRadius: 4,
-                    pointBackgroundColor: '#6c757d',
-                    pointBorderColor: 'white'
-                },
-                {
-                    label: !temFiltroEspecifico ? 'Realizado PAGO Acumulado (R$)' : 'Realizado PAGO (R$)',
-                    data: dadosRealizadoPago,
-                    borderColor: '#28a745',
-                    backgroundColor: 'transparent',
-                    borderWidth: 2,
-                    borderDash: [10, 5],
-                    pointRadius: 4,
-                    pointBackgroundColor: '#28a745',
-                    pointBorderColor: 'white'
-                }
+                { label: !temFiltroEspecifico ? 'Realizado Acumulado (R$)' : 'Realizado (R$)', data: dadosRealizado, borderColor: '#17a2b8', backgroundColor: 'rgba(23, 162, 184, 0.1)', borderWidth: 3, fill: true, tension: 0.3, pointRadius: 5, pointBackgroundColor: '#17a2b8', pointBorderColor: 'white' },
+                { label: !temFiltroEspecifico ? 'Previsto Acumulado (R$)' : 'Previsto (R$)', data: dadosPrevisto, borderColor: '#6c757d', backgroundColor: 'transparent', borderWidth: 2, borderDash: [5, 5], pointRadius: 4, pointBackgroundColor: '#6c757d', pointBorderColor: 'white' },
+                { label: !temFiltroEspecifico ? 'Realizado PAGO Acumulado (R$)' : 'Realizado PAGO (R$)', data: dadosRealizadoPago, borderColor: '#28a745', backgroundColor: 'transparent', borderWidth: 2, borderDash: [10, 5], pointRadius: 4, pointBackgroundColor: '#28a745', pointBorderColor: 'white' }
             ]
         },
         options: {
             responsive: true,
             maintainAspectRatio: true,
             plugins: {
-                legend: { 
-                    position: 'top', 
-                    labels: { font: { size: 11 }, usePointStyle: true, boxWidth: 10 } 
-                },
+                legend: { position: 'top', labels: { font: { size: 11 }, usePointStyle: true, boxWidth: 10 } },
                 tooltip: {
                     callbacks: {
                         label: function(context) {
@@ -2562,11 +2301,7 @@ function atualizarGraficoAcumulado(filtrados) {
                 }
             },
             scales: {
-                y: {
-                    beginAtZero: true,
-                    max: maxValorArredondado,
-                    ticks: { callback: function(v) { return 'R$ ' + (v/1000000).toFixed(1) + 'M'; } }
-                }
+                y: { beginAtZero: true, max: maxValorArredondado, ticks: { callback: function(v) { return 'R$ ' + (v/1000000).toFixed(1) + 'M'; } } }
             }
         }
     });
@@ -2743,9 +2478,9 @@ function renderizarTabela(filtrados) {
 }
 
 // ============================================================
-// 📊 FUNÇÕES DE AÇÃO (Salvar, Limpar, PDF, Apresentação)
+// 💾 SALVAR TUDO
 // ============================================================
-function salvarTodos() {
+async function salvarTodos() {
     for (var i = 0; i < dados.length; i++) {
         var med = dados[i].med;
         var dataInput = document.getElementById('data_' + med);
@@ -2801,10 +2536,7 @@ function salvarTodos() {
         }
     }
     
-    // SALVA NO FIREBASE
-    salvarDadosFirebase(dados);
-    
-    // Também salva no localStorage como fallback
+    await salvarDados();
     localStorage.setItem('medições_dados_v9_final', JSON.stringify(dados));
     mostrarStatus('Dados salvos!', true);
     aplicarFiltros();
@@ -2820,19 +2552,9 @@ function aplicarFiltros() {
     var filtrados = dados.slice();
     
     if (!mostrar) filtrados = filtrados.filter(function(d) { return d.data && d.data !== '' && isDataValida(d.data); });
-    
-    if (medSelecionados.length > 0) {
-        filtrados = filtrados.filter(function(d) { return medSelecionados.indexOf(d.med) !== -1; });
-    }
-    
-    if (perSelecionados.length > 0) {
-        filtrados = filtrados.filter(function(d) { return perSelecionados.indexOf(d.mes) !== -1; });
-    }
-    
-    if (anoSelecionados.length > 0) {
-        filtrados = filtrados.filter(function(d) { return anoSelecionados.indexOf(extrairAno(d.mes)) !== -1; });
-    }
-    
+    if (medSelecionados.length > 0) filtrados = filtrados.filter(function(d) { return medSelecionados.indexOf(d.med) !== -1; });
+    if (perSelecionados.length > 0) filtrados = filtrados.filter(function(d) { return perSelecionados.indexOf(d.mes) !== -1; });
+    if (anoSelecionados.length > 0) filtrados = filtrados.filter(function(d) { return anoSelecionados.indexOf(extrairAno(d.mes)) !== -1; });
     if (stSelecionados.length > 0) {
         var stNorm = stSelecionados.map(function(s) { return s === 'não_iniciado' ? 'nao_iniciado' : s; });
         filtrados = filtrados.filter(function(d) { return stNorm.indexOf(d.status) !== -1; });
@@ -2845,7 +2567,6 @@ function aplicarFiltros() {
     
     atualizarBadges();
     renderizarTabela(filtrados);
-    
     atualizarCardsEmpresas();
     atualizarTotalSelecionado();
 }
@@ -2874,6 +2595,9 @@ function filtrarStatus(st) {
     aplicarFiltros();
 }
 
+// ============================================================
+// 📄 GERAR PDF (mantido igual)
+// ============================================================
 function gerarPDF() {
     salvarTodos();
 
@@ -2885,19 +2609,9 @@ function gerarPDF() {
     
     var filtrados = dados.slice();
     if (!mostrar) filtrados = filtrados.filter(function(d) { return d.data && d.data !== '' && isDataValida(d.data); });
-    
-    if (medSelecionados.length > 0) {
-        filtrados = filtrados.filter(function(d) { return medSelecionados.indexOf(d.med) !== -1; });
-    }
-    
-    if (perSelecionados.length > 0) {
-        filtrados = filtrados.filter(function(d) { return perSelecionados.indexOf(d.mes) !== -1; });
-    }
-    
-    if (anoSelecionados.length > 0) {
-        filtrados = filtrados.filter(function(d) { return anoSelecionados.indexOf(extrairAno(d.mes)) !== -1; });
-    }
-    
+    if (medSelecionados.length > 0) filtrados = filtrados.filter(function(d) { return medSelecionados.indexOf(d.med) !== -1; });
+    if (perSelecionados.length > 0) filtrados = filtrados.filter(function(d) { return perSelecionados.indexOf(d.mes) !== -1; });
+    if (anoSelecionados.length > 0) filtrados = filtrados.filter(function(d) { return anoSelecionados.indexOf(extrairAno(d.mes)) !== -1; });
     if (stSelecionados.length > 0) {
         var stNorm = stSelecionados.map(function(s) { return s === 'não_iniciado' ? 'nao_iniciado' : s; });
         filtrados = filtrados.filter(function(d) { return stNorm.indexOf(d.status) !== -1; });
@@ -2973,6 +2687,9 @@ function gerarPDF() {
     mostrarStatus('PDF gerado!', true);
 }
 
+// ============================================================
+// 📺 GERAR APRESENTAÇÃO (mantido igual)
+// ============================================================
 function gerarApresentacao() {
     salvarTodos();
     
@@ -3235,12 +2952,11 @@ function gerarApresentacao() {
 // ============================================================
 // 🚀 INICIALIZAÇÃO
 // ============================================================
-// Se já estiver logado (sessão ativa), carrega os dados
-if (localStorage.getItem('sessaoAtiva') === 'true') {
-    // Tenta carregar do Firebase primeiro
-    if (typeof carregarDados === 'function') {
-        carregarDados();
-    }
+if (localStorage.getItem('sessaoAtiva') === 'true' && pb.authStore.isValid) {
+    document.getElementById('loginOverlay').classList.add('hidden');
+    document.getElementById('relatorioPDF').style.display = 'block';
+    document.getElementById('usuarioNome').textContent = localStorage.getItem('usuarioLogado') || 'dev1';
+    carregarDados();
 }
 
 // Fecha dropdowns ao clicar fora
