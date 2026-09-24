@@ -2481,6 +2481,7 @@ function renderizarTabela(filtrados) {
 // 💾 SALVAR TUDO
 // ============================================================
 async function salvarTodos() {
+    // 1) Coleta os valores dos inputs para o array `dados`
     for (var i = 0; i < dados.length; i++) {
         var med = dados[i].med;
         var dataInput = document.getElementById('data_' + med);
@@ -2519,6 +2520,7 @@ async function salvarTodos() {
         }
     }
     
+    // 2) Recalcula o acumulado
     var dadosOrdenados = [...dados].sort(function(a, b) {
         return parseInt(a.med) - parseInt(b.med);
     });
@@ -2536,10 +2538,15 @@ async function salvarTodos() {
         }
     }
     
+    // 3) Salva no PocketBase
     await salvarDados();
-    localStorage.setItem('medições_dados_v9_final', JSON.stringify(dados));
+    
+    // 4) Atualiza os cards e gráficos SEM recriar a tabela
+    atualizarCards(dados);
+    atualizarCardsEmpresas();
+    atualizarTotalSelecionado();
+    
     mostrarStatus('Dados salvos!', true);
-    aplicarFiltros();
 }
 
 function aplicarFiltros() {
