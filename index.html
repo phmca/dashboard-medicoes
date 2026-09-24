@@ -1316,7 +1316,7 @@ pb.autoCancellation(false);
 // ============================================================
 // 🔐 FUNÇÕES DE LOGIN
 // ============================================================
-async function fazerLogin(event) {
+ function fazerLogin(event) {
     event.preventDefault();
     
     const username = document.getElementById('username').value.trim();
@@ -1494,7 +1494,7 @@ function gerarDadosIniciais() {
 // ============================================================
 // 🔥 CARREGAR DADOS DO POCKETBASE
 // ============================================================
-async function carregarDados() {
+ function carregarDados() {
     if (dadosCarregados) return;
     
     mostrarStatus('🔄 Carregando dados...', true);
@@ -1556,7 +1556,7 @@ async function carregarDados() {
 // ============================================================
 // 🔥 SALVAR DADOS NO POCKETBASE
 // ============================================================
-async function salvarDados() {
+ function salvarDados() {
     if (salvando) return;
     salvando = true;
     
@@ -2539,9 +2539,10 @@ async function salvarTodos() {
     await salvarDados();
     localStorage.setItem('medições_dados_v9_final', JSON.stringify(dados));
     mostrarStatus('Dados salvos!', true);
-    aplicarFiltros();
+    atualizarCards(dados);
+    atualizarCardsEmpresas();
+    atualizarTotalSelecionado();
 }
-
 function aplicarFiltros() {
     var medSelecionados = obterValoresDropdown('dropdownMedicao');
     var perSelecionados = obterValoresDropdown('dropdownPeriodo');
