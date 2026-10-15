@@ -299,72 +299,6 @@
     color: #94a3b8;
 }
 
-/* ===== BOTÃO DE LOGIN ===== */
-.login-box .btn-login {
-    width: 100%;
-    padding: 14px;
-    background: #4496CB;
-    color: white;
-    border: none;
-    border-radius: 12px;
-    font-size: 16px;
-    font-weight: 700;
-    cursor: pointer;
-    transition: background 0.2s, transform 0.1s;
-    margin-top: 4px;
-}
-
-.login-box .btn-login:hover {
-    background: #2c5f7a;
-}
-
-.login-box .btn-login:active {
-    transform: scale(0.98);
-}
-
-/* ===== ERROR ===== */
-.login-box .error {
-    color: #dc3545;
-    font-size: 13px;
-    text-align: center;
-    margin-top: 12px;
-    display: none;
-}
-
-.login-box .error.show {
-    display: block;
-}
-
-/* ===== USERS INFO ===== */
-.login-box .users-info {
-    background: #f8fafc;
-    border-radius: 12px;
-    padding: 12px;
-    margin-top: 16px;
-    font-size: 12px;
-    color: #64748b;
-    text-align: center;
-    border: 1px solid #e2e8f0;
-}
-
-.login-box .users-info code {
-    background: #e2e8f0;
-    padding: 2px 10px;
-    border-radius: 20px;
-    font-size: 11px;
-    margin: 0 4px;
-    font-weight: 600;
-    color: #1a3a4a;
-}
-
-/* ===== FOOTER ===== */
-.login-box .footer {
-    text-align: center;
-    margin-top: 16px;
-    font-size: 12px;
-    color: #94a3b8;
-}
-
     /* ===== ESTILOS ORIGINAIS (continuação) ===== */
     .btn-group { 
         display: flex; 
@@ -833,7 +767,10 @@
     .toggle-tabela {
         display: flex;
         justify-content: center;
-        padding: 8px 16px;
+        align-items: center;
+        gap: 16px;
+        flex-wrap: wrap;
+        padding: 10px 16px;
         background: white;
         border-radius: 12px 12px 0 0;
         border-bottom: 1px solid #e2e8f0;
@@ -844,6 +781,11 @@
         margin: 0;
         font-size: 12px;
         padding: 6px 16px;
+    }
+    .toggle-tabela .btn-save {
+        padding: 8px 18px;
+        font-size: 12px;
+        border-radius: 10px;
     }
     .toggle-label { 
         display: inline-flex; 
@@ -939,6 +881,14 @@
         .dropdown-btn { min-width: 100%; }
         .dropdown-menu { min-width: 100%; left: 0; right: 0; }
         .toggle-label { margin-left: 0; }
+        .toggle-tabela {
+            flex-direction: column;
+            gap: 10px;
+        }
+        .toggle-tabela .btn-save {
+            width: 100%;
+            justify-content: center;
+        }
         .toggle-tabela .toggle-label { width: 100%; justify-content: center; }
         .header-logo-right { flex-wrap: wrap; justify-content: center; }
         .user-info { font-size: 12px; padding: 4px 10px 4px 14px; }
@@ -1005,7 +955,6 @@
     </div>
     
     <div class="btn-group">
-        <button class="btn btn-save" onclick="salvarTodos()">💾 Salvar Alterações</button>
         <button class="btn btn-presentation" onclick="gerarApresentacao()">📺 Modo Apresentação</button>
         <button class="btn btn-clear" onclick="limparFiltros()">🗑️ Limpar Filtros</button>
         <button class="btn btn-pdf" onclick="gerarPDF()">📄 Gerar PDF</button>
@@ -1202,8 +1151,9 @@
         </div>
     </div>
     
-    <!-- Toggle centralizado dentro da tabela -->
+    <!-- Toggle + Salvar lado a lado -->
     <div class="toggle-tabela">
+        <button class="btn btn-save" onclick="salvarTodos()">💾 Salvar Alterações</button>
         <label class="toggle-label">📋 Exibir não iniciados <input type="checkbox" id="mostrarVazios" onchange="aplicarFiltros()"></label>
     </div>
 
@@ -2945,3 +2895,5 @@ document.addEventListener('click', function(event) {
     }
 });
 </script>
+</body>
+</html>
